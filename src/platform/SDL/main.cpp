@@ -75,5 +75,7 @@ int main(int argc, char* argv[]) {
 		engine.update(delta);
 	}
 
+	delete render;
+
 	SDL_DestroyWindow(window);
 }

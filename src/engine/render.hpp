@@ -1,9 +1,10 @@
 #pragma once
 
-#include <cstdint>
+#include "model.hpp"
+#include "types.hpp"
 
 class Render {
   public:
-	virtual void resize(uint32_t width, uint32_t height) = 0;
+	virtual void resize(u32 width, u32 height) = 0;
 	virtual void renderFrame() = 0;
 };

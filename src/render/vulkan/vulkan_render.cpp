@@ -35,7 +35,7 @@ VkBool32 debug_callback(
 
 	switch (static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity)) {
 	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
-		severity = Log::Severity::Verbose;
+		severity = Log::Severity::Trace;
 		break;
 	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
 		severity = Log::Severity::Info;
