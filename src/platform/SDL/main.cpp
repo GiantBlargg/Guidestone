@@ -19,18 +19,17 @@ int main(int argc, char* argv[]) {
 		SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 	SDL_SetWindowMinimumSize(window, 640, 480);
 
-	std::vector<const char*> vulkan_extensions;
+	Vulkan::Context::Create vulkan_context{
+		(PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr(),
+		{},
+		[window](VkInstance instance, VkSurfaceKHR* surface) { SDL_Vulkan_CreateSurface(window, instance, surface); }};
+
 	uint sdl_vulkan_extensions_count;
 	SDL_Vulkan_GetInstanceExtensions(window, &sdl_vulkan_extensions_count, nullptr);
-	vulkan_extensions.resize(sdl_vulkan_extensions_count);
-	SDL_Vulkan_GetInstanceExtensions(window, &sdl_vulkan_extensions_count, vulkan_extensions.data());
+	vulkan_context.extensions.resize(sdl_vulkan_extensions_count);
+	SDL_Vulkan_GetInstanceExtensions(window, &sdl_vulkan_extensions_count, vulkan_context.extensions.data());
 
-	Vulkan::VulkanRender* render = new Vulkan::VulkanRender(
-		(PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr(), vulkan_extensions, [window](vk::Instance i) {
-			VkSurfaceKHR surface;
-			SDL_Vulkan_CreateSurface(window, i, &surface);
-			return surface;
-		});
+	Vulkan::VulkanRender* render = new Vulkan::VulkanRender(vulkan_context);
 
 	engine.init(render);
 

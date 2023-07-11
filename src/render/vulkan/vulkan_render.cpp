@@ -4,70 +4,6 @@
 
 namespace Vulkan {
 
-#if RENDER_DEBUG == 1
-VkBool32 debug_callback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void*) {
-	switch (static_cast<uint32_t>(pCallbackData->messageIdNumber)) {
-
-	// UNASSIGNED-BestPractices-CreateImage-Depth32Format
-	// I WANT 32-BIT DEPTH BUFFERS!
-	case 0x53bb41ae:
-
-	// UNASSIGNED-BestPractices-ClearColor-NotCompressed
-	// Will Eventually switch to DontCare
-	case 0x6f7a814b:
-
-	// UNASSIGNED-BestPractices-vkCreateInstance-specialuse-extension-debugging
-	// Debugging is disabled in Release
-	case 0x822806fa:
-
-	// SYNC-HAZARD-PRESENT-AFTER-WRITE
-	// I'm pretty sure I'm doing this properly
-	case 0xe17ab4ae:
-
-		return false;
-	default:
-		break;
-	}
-
-	Log::Severity severity;
-
-	switch (static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity)) {
-	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
-		severity = Log::Severity::Trace;
-		break;
-	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
-		severity = Log::Severity::Info;
-		break;
-	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
-		severity = Log::Severity::Warning;
-		break;
-	case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
-		severity = Log::Severity::Error;
-		break;
-	}
-
-	Log::log(Log::Msg{
-		.severity = severity,
-		.type = "Vulkan " + to_string(static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(messageTypes)) + " " +
-			to_string(static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity)) + ": " +
-			pCallbackData->pMessageIdName,
-		.msg = pCallbackData->pMessage});
-
-	return false;
-}
-
-vk::DebugUtilsMessengerCreateInfoEXT const debug_messenger_create_info(
-	{},
-	vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
-		vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-	vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-		vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
-	debug_callback);
-
-#endif
-
 const std::vector<vk::Format> valid_formats = {
 	vk::Format::eR8G8B8Srgb,         vk::Format::eB8G8R8Srgb,         vk::Format::eR8G8B8A8Srgb,
 	vk::Format::eB8G8R8A8Srgb,       vk::Format::eA8B8G8R8SrgbPack32, vk::Format::eR16G16B16Sfloat,
@@ -75,35 +11,11 @@ const std::vector<vk::Format> valid_formats = {
 	vk::Format::eR64G64B64Sfloat,    vk::Format::eR64G64B64A64Sfloat, vk::Format::eB10G11R11UfloatPack32,
 };
 
-VulkanRender::VulkanRender(
-	PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, std::vector<const char*> vulkan_extensions,
-	std::function<vk::SurfaceKHR(vk::Instance)> make_surface) {
-	VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
-
-	{
-#if RENDER_DEBUG == 1
-		vulkan_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#endif
-		vk::ApplicationInfo app_info("Guidestone", 0, "Guidestone", 0, VK_API_VERSION_1_3);
-		vk::InstanceCreateInfo instance_create({}, &app_info, {}, vulkan_extensions);
-
-#if RENDER_DEBUG == 1
-		instance_create.setPNext(&debug_messenger_create_info);
-#endif
-
-		instance = vk::createInstance(instance_create);
-	}
-	VULKAN_HPP_DEFAULT_DISPATCHER.init(instance);
-
-#if RENDER_DEBUG == 1
-	debug_messenger = instance.createDebugUtilsMessengerEXT(debug_messenger_create_info);
-#endif
-
-	surface = make_surface(instance);
+VulkanRender::VulkanRender(Context::Create c) : context(c) {
 
 	{
 		// TODO: Allow changing device
-		std::vector<vk::PhysicalDevice> physical_devices = instance.enumeratePhysicalDevices();
+		std::vector<vk::PhysicalDevice> physical_devices = context.instance.enumeratePhysicalDevices();
 		std::vector<DeviceConfig> configs;
 		for (auto pd : physical_devices) {
 			if (pd.getProperties().apiVersion < VK_API_VERSION_1_3)
@@ -134,7 +46,7 @@ VulkanRender::VulkanRender(
 			}
 
 			{ // Pick a format
-				std::vector<vk::SurfaceFormatKHR> supported_formats = pd.getSurfaceFormatsKHR(surface);
+				std::vector<vk::SurfaceFormatKHR> supported_formats = pd.getSurfaceFormatsKHR(context.surface);
 				supported_formats.erase(
 					std::remove_if(
 						supported_formats.begin(), supported_formats.end(),
@@ -154,7 +66,7 @@ VulkanRender::VulkanRender(
 				bool found = false;
 				std::vector<vk::QueueFamilyProperties> queue_families = pd.getQueueFamilyProperties();
 				for (int i = 0; i < queue_families.size(); i++) {
-					if (!pd.getSurfaceSupportKHR(i, surface))
+					if (!pd.getSurfaceSupportKHR(i, context.surface))
 						continue;
 
 					if (!(queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics))
@@ -168,7 +80,7 @@ VulkanRender::VulkanRender(
 			}
 
 			{ // Pick Present Mode
-				std::vector<vk::PresentModeKHR> modes = pd.getSurfacePresentModesKHR(surface);
+				std::vector<vk::PresentModeKHR> modes = pd.getSurfacePresentModesKHR(context.surface);
 				bool mailbox, relaxed;
 				for (auto mode : modes) {
 					mailbox |= mode == vk::PresentModeKHR::eMailbox;
@@ -244,7 +156,7 @@ VulkanRender::VulkanRender(
 			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceImageMemoryRequirements,
 		};
 		alloc_info.setPVulkanFunctions(&vkfuncs);
-		alloc_info.setInstance(instance);
+		alloc_info.setInstance(context.instance);
 		alloc_info.setVulkanApiVersion(VK_API_VERSION_1_3);
 		allocator = vma::createAllocator(alloc_info);
 	}
@@ -284,13 +196,6 @@ VulkanRender::~VulkanRender() {
 
 	device.destroySwapchainKHR(swapchain);
 	device.destroy();
-	instance.destroy(surface);
-
-#if RENDER_DEBUG
-	instance.destroyDebugUtilsMessengerEXT(debug_messenger);
-#endif
-
-	instance.destroy();
 }
 
 void VulkanRender::reconfigureSwapchain() {
@@ -299,7 +204,7 @@ void VulkanRender::reconfigureSwapchain() {
 	// Seems to work without
 	device.waitIdle();
 
-	vk::SurfaceCapabilitiesKHR caps = device_config.physical_device.getSurfaceCapabilitiesKHR(surface);
+	vk::SurfaceCapabilitiesKHR caps = device_config.physical_device.getSurfaceCapabilitiesKHR(context.surface);
 	if (caps.currentExtent != vk::Extent2D(0xFFFFFFFF, 0xFFFFFFFF) && caps.currentExtent != vk::Extent2D(0, 0)) {
 		surface_extent = caps.currentExtent;
 	} else {
@@ -323,7 +228,7 @@ void VulkanRender::reconfigureSwapchain() {
 		vk::SwapchainKHR old_swapchain = swapchain;
 
 		swapchain = device.createSwapchainKHR(vk::SwapchainCreateInfoKHR(
-			{}, surface, image_count, device_config.surface_colour_format.format,
+			{}, context.surface, image_count, device_config.surface_colour_format.format,
 			device_config.surface_colour_format.colorSpace, surface_extent, 1, vk::ImageUsageFlagBits::eColorAttachment,
 			vk::SharingMode::eExclusive, {}, vk::SurfaceTransformFlagBitsKHR::eIdentity,
 			vk::CompositeAlphaFlagBitsKHR::eOpaque, vk::PresentModeKHR::eFifo, true, old_swapchain));

@@ -1,18 +1,12 @@
 #pragma once
 
+#include "context.hpp"
 #include "engine/render.hpp"
-#include <functional>
 #include <vector>
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan.hpp>
 
 namespace Vulkan {
-
-#if !defined(RENDER_DEBUG)
-#if !defined(NDEBUG)
-#define RENDER_DEBUG 1
-#endif
-#endif
 
 struct ImageAllocation {
 	vk::Image image;
@@ -30,11 +24,7 @@ struct ImageAllocation {
 };
 
 class VulkanRender : public Render {
-	vk::Instance instance;
-#if RENDER_DEBUG == 1
-	vk::DebugUtilsMessengerEXT debug_messenger;
-#endif
-	vk::SurfaceKHR surface;
+	const Context context;
 
 	struct DeviceConfig {
 		vk::PhysicalDevice physical_device;
@@ -71,9 +61,7 @@ class VulkanRender : public Render {
 	uint32_t acquireImage(vk::Semaphore semaphore);
 
   public:
-	VulkanRender(
-		PFN_vkGetInstanceProcAddr, std::vector<const char*> vulkan_extensions,
-		std::function<vk::SurfaceKHR(vk::Instance)> make_surface);
+	VulkanRender(Context::Create);
 	~VulkanRender();
 
 	void resize(uint32_t width, uint32_t height) override;
