@@ -1,4 +1,4 @@
-#include "vulkan_render.hpp"
+#include "render.hpp"
 
 #include "engine/log.hpp"
 
@@ -11,7 +11,7 @@ const std::vector<vk::Format> valid_formats = {
 	vk::Format::eR64G64B64Sfloat,    vk::Format::eR64G64B64A64Sfloat, vk::Format::eB10G11R11UfloatPack32,
 };
 
-VulkanRender::VulkanRender(Context::Create c) : context(c) {
+Render::Render(Context::Create c) : context(c) {
 
 	{
 		// TODO: Allow changing device
@@ -176,7 +176,7 @@ VulkanRender::VulkanRender(Context::Create c) : context(c) {
 	}
 }
 
-VulkanRender::~VulkanRender() {
+Render::~Render() {
 	device.waitIdle();
 
 	for (int i = 0; i < frame_concurrency; i++) {
@@ -198,7 +198,7 @@ VulkanRender::~VulkanRender() {
 	device.destroy();
 }
 
-void VulkanRender::reconfigureSwapchain() {
+void Render::reconfigureSwapchain() {
 	update_swapchain = false;
 
 	// Seems to work without
@@ -267,7 +267,7 @@ void VulkanRender::reconfigureSwapchain() {
 	}
 }
 
-void VulkanRender::resize(uint32_t width, uint32_t height) {
+void Render::resize(uint32_t width, uint32_t height) {
 	vk::Extent2D new_extent{width, height};
 	if (surface_extent == new_extent)
 		return;
@@ -276,7 +276,7 @@ void VulkanRender::resize(uint32_t width, uint32_t height) {
 	surface_extent = new_extent;
 }
 
-uint32_t VulkanRender::acquireImage(vk::Semaphore semaphore) {
+uint32_t Render::acquireImage(vk::Semaphore semaphore) {
 	if (update_swapchain)
 		reconfigureSwapchain();
 
@@ -289,7 +289,7 @@ uint32_t VulkanRender::acquireImage(vk::Semaphore semaphore) {
 	return image_index_result.value;
 }
 
-void VulkanRender::renderFrame() {
+void Render::renderFrame() {
 	frame_index++;
 	auto& frame = per_frame[frame_index % frame_concurrency];
 

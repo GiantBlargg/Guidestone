@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "engine/engine.hpp"
-#include "render/vulkan/vulkan_render.hpp"
+#include "render/vulkan/render.hpp"
 
 int main(int argc, char* argv[]) {
 #ifdef __LINUX__
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 	vulkan_context.extensions.resize(sdl_vulkan_extensions_count);
 	SDL_Vulkan_GetInstanceExtensions(window, &sdl_vulkan_extensions_count, vulkan_context.extensions.data());
 
-	Vulkan::VulkanRender* render = new Vulkan::VulkanRender(vulkan_context);
+	Vulkan::Render* render = new Vulkan::Render(vulkan_context);
 
 	engine.init(render);
 

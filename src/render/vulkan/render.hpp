@@ -23,7 +23,7 @@ struct ImageAllocation {
 	void destroy(vma::Allocator allocator) { return allocator.destroyImage(image, alloc); }
 };
 
-class VulkanRender : public Render {
+class Render : public ::Render {
 	const Context context;
 
 	struct DeviceConfig {
@@ -61,8 +61,8 @@ class VulkanRender : public Render {
 	uint32_t acquireImage(vk::Semaphore semaphore);
 
   public:
-	VulkanRender(Context::Create);
-	~VulkanRender();
+	Render(Context::Create);
+	~Render();
 
 	void resize(uint32_t width, uint32_t height) override;
 	void renderFrame() override;
