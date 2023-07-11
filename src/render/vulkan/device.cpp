@@ -1,0 +1,166 @@
+#include "device.hpp"
+
+namespace Vulkan {
+
+const std::vector<vk::Format> valid_formats = {
+	vk::Format::eR8G8B8Srgb,         vk::Format::eB8G8R8Srgb,         vk::Format::eR8G8B8A8Srgb,
+	vk::Format::eB8G8R8A8Srgb,       vk::Format::eA8B8G8R8SrgbPack32, vk::Format::eR16G16B16Sfloat,
+	vk::Format::eR16G16B16A16Sfloat, vk::Format::eR32G32B32Sfloat,    vk::Format::eR32G32B32A32Sfloat,
+	vk::Format::eR64G64B64Sfloat,    vk::Format::eR64G64B64A64Sfloat, vk::Format::eB10G11R11UfloatPack32,
+};
+
+Device::Device(const Context& context) {
+	{
+		// TODO: Allow changing device
+		std::vector<vk::PhysicalDevice> physical_devices = context.instance.enumeratePhysicalDevices();
+		std::vector<Config> configs;
+		for (auto pd : physical_devices) {
+			if (pd.getProperties().apiVersion < VK_API_VERSION_1_3)
+				continue;
+
+			Config config;
+			config.physical_device = pd;
+
+			{
+				for (auto ext : pd.enumerateDeviceExtensionProperties()) {
+					if (!strcmp(ext.extensionName, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+						config.memory_budget = true;
+					}
+					if (!strcmp(ext.extensionName, VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
+						config.memory_priority = true;
+					}
+				}
+			}
+
+			{
+				auto features = pd.getFeatures2<
+					vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features,
+					vk::PhysicalDeviceMemoryPriorityFeaturesEXT>();
+				auto features13 = features.get<vk::PhysicalDeviceVulkan13Features>();
+				if (!features13.dynamicRendering || !features13.synchronization2)
+					continue;
+				config.memory_priority |= features.get<vk::PhysicalDeviceMemoryPriorityFeaturesEXT>().memoryPriority;
+			}
+
+			{ // Pick a format
+				std::vector<vk::SurfaceFormatKHR> supported_formats = pd.getSurfaceFormatsKHR(context.surface);
+				supported_formats.erase(
+					std::remove_if(
+						supported_formats.begin(), supported_formats.end(),
+						[](vk::SurfaceFormatKHR format) {
+							bool valid_space = format.colorSpace == vk::ColorSpaceKHR::eVkColorspaceSrgbNonlinear;
+							bool valid_format = std::find(valid_formats.begin(), valid_formats.end(), format.format) !=
+								valid_formats.end();
+							return !(valid_space && valid_format);
+						}),
+					supported_formats.end());
+				if (supported_formats.empty())
+					continue;
+				config.surface_colour_format = supported_formats.front();
+			}
+
+			{ // Pick a queue
+				bool found = false;
+				std::vector<vk::QueueFamilyProperties> queue_families = pd.getQueueFamilyProperties();
+				for (int i = 0; i < queue_families.size(); i++) {
+					if (!pd.getSurfaceSupportKHR(i, context.surface))
+						continue;
+
+					if (!(queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics))
+						continue;
+
+					found = true;
+					config.queue_family = i;
+				}
+				if (!found)
+					continue;
+			}
+
+			{ // Pick Present Mode
+				std::vector<vk::PresentModeKHR> modes = pd.getSurfacePresentModesKHR(context.surface);
+				bool mailbox, relaxed;
+				for (auto mode : modes) {
+					mailbox |= mode == vk::PresentModeKHR::eMailbox;
+					relaxed |= mode == vk::PresentModeKHR::eFifoRelaxed;
+				}
+				config.present_mode = mailbox ? vk::PresentModeKHR::eMailbox
+					: relaxed                 ? vk::PresentModeKHR::eFifoRelaxed
+											  : vk::PresentModeKHR::eFifo;
+				// Force Fifo for early development
+				config.present_mode = vk::PresentModeKHR::eFifo;
+			}
+
+			configs.push_back(config);
+		}
+		config = configs.front();
+	}
+	{
+		float queue_priority = 1.0f;
+		vk::DeviceQueueCreateInfo queue_create({}, config.queue_family);
+		queue_create.setQueuePriorities(queue_priority);
+		std::vector<const char*> device_ext = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+		if (config.memory_budget) {
+			device_ext.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+		}
+		if (config.memory_priority) {
+			device_ext.push_back(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
+		}
+		vk::StructureChain<
+			vk::DeviceCreateInfo, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceMemoryPriorityFeaturesEXT>
+			device_info(
+				vk::DeviceCreateInfo({}, queue_create, {}, device_ext), vk::PhysicalDeviceVulkan13Features(),
+				vk::PhysicalDeviceMemoryPriorityFeaturesEXT(config.memory_priority));
+		device_info.get<vk::PhysicalDeviceVulkan13Features>().setDynamicRendering(true).setSynchronization2(true);
+		device = config.physical_device.createDevice(device_info.get());
+		VULKAN_HPP_DEFAULT_DISPATCHER.init(device);
+	}
+
+	queue = device.getQueue(config.queue_family, 0);
+
+	{
+		vma::AllocatorCreateInfo alloc_info({}, config.physical_device, device);
+		if (config.memory_budget)
+			alloc_info.flags |= vma::AllocatorCreateFlagBits::eExtMemoryBudget;
+		if (config.memory_priority)
+			alloc_info.flags |= vma::AllocatorCreateFlagBits::eExtMemoryPriority;
+
+		vma::VulkanFunctions vkfuncs{
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceProcAddr,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceProperties,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceMemoryProperties,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkAllocateMemory,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkFreeMemory,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkMapMemory,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkUnmapMemory,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkFlushMappedMemoryRanges,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkInvalidateMappedMemoryRanges,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkBindBufferMemory,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkBindImageMemory,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetBufferMemoryRequirements,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetImageMemoryRequirements,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateBuffer,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyBuffer,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateImage,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyImage,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdCopyBuffer,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetBufferMemoryRequirements2,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetImageMemoryRequirements2,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkBindBufferMemory2,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkBindImageMemory2,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceMemoryProperties2,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceBufferMemoryRequirements,
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceImageMemoryRequirements,
+		};
+		alloc_info.setPVulkanFunctions(&vkfuncs);
+		alloc_info.setInstance(context.instance);
+		alloc_info.setVulkanApiVersion(VK_API_VERSION_1_3);
+		allocator = vma::createAllocator(alloc_info);
+	}
+}
+Device::~Device() {
+	allocator.destroy();
+	device.destroy();
+}
+
+} // namespace Vulkan
