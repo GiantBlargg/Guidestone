@@ -10,7 +10,7 @@ Render::Render(Context::Create c) : context(c), device(context) {
 
 	for (int i = 0; i < frame_concurrency; i++) {
 		PerFrame& f = per_frame[i];
-		f.command_pool = device.device.createCommandPool(vk::CommandPoolCreateInfo({}, device.config.queue_family));
+		f.command_pool = device.device.createCommandPool(vk::CommandPoolCreateInfo({}, device.graphics_queue.family));
 		f.command_buffer = device.device
 							   .allocateCommandBuffers(
 								   vk::CommandBufferAllocateInfo(f.command_pool, vk::CommandBufferLevel::ePrimary, 1))
@@ -47,7 +47,7 @@ void Render::reconfigureSwapchain() {
 	// Seems to work without
 	device.device.waitIdle();
 
-	vk::SurfaceCapabilitiesKHR caps = device.config.physical_device.getSurfaceCapabilitiesKHR(context.surface);
+	vk::SurfaceCapabilitiesKHR caps = device.physical_device.getSurfaceCapabilitiesKHR(context.surface);
 	if (caps.currentExtent != vk::Extent2D(0xFFFFFFFF, 0xFFFFFFFF) && caps.currentExtent != vk::Extent2D(0, 0)) {
 		surface_extent = caps.currentExtent;
 	} else {
@@ -71,10 +71,10 @@ void Render::reconfigureSwapchain() {
 		vk::SwapchainKHR old_swapchain = swapchain;
 
 		swapchain = device.device.createSwapchainKHR(vk::SwapchainCreateInfoKHR(
-			{}, context.surface, image_count, device.config.surface_colour_format.format,
-			device.config.surface_colour_format.colorSpace, surface_extent, 1, vk::ImageUsageFlagBits::eColorAttachment,
-			vk::SharingMode::eExclusive, {}, vk::SurfaceTransformFlagBitsKHR::eIdentity,
-			vk::CompositeAlphaFlagBitsKHR::eOpaque, vk::PresentModeKHR::eFifo, true, old_swapchain));
+			{}, context.surface, image_count, device.surface_format.format, device.surface_format.colorSpace,
+			surface_extent, 1, vk::ImageUsageFlagBits::eColorAttachment, vk::SharingMode::eExclusive, {},
+			vk::SurfaceTransformFlagBitsKHR::eIdentity, vk::CompositeAlphaFlagBitsKHR::eOpaque, device.present_mode,
+			true, old_swapchain));
 
 		if (old_swapchain)
 			device.device.destroySwapchainKHR(old_swapchain);
@@ -86,7 +86,7 @@ void Render::reconfigureSwapchain() {
 	image_views.resize(images.size());
 	for (size_t i = 0; i < image_views.size(); i++) {
 		image_views[i] = device.device.createImageView(vk::ImageViewCreateInfo(
-			{}, images[i], vk::ImageViewType::e2D, device.config.surface_colour_format.format, {},
+			{}, images[i], vk::ImageViewType::e2D, device.surface_format.format, {},
 			vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)));
 	}
 
@@ -96,16 +96,16 @@ void Render::reconfigureSwapchain() {
 	}
 
 	{
-		vk::Format depth_format = vk::Format::eD32Sfloat;
 		vk::ImageCreateInfo depth_info(
-			{}, vk::ImageType::e2D, depth_format, vk::Extent3D(surface_extent.width, surface_extent.height, 1), 1, 1,
-			vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
-			vk::SharingMode::eExclusive, device.config.queue_family, vk::ImageLayout::eUndefined);
+			{}, vk::ImageType::e2D, device.depth_format, vk::Extent3D(surface_extent.width, surface_extent.height, 1),
+			1, 1, vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal,
+			vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::SharingMode::eExclusive, device.graphics_queue.family,
+			vk::ImageLayout::eUndefined);
 		vma::AllocationCreateInfo alloc_info;
 		alloc_info.setUsage(vma::MemoryUsage::eGpuOnly).setPriority(1);
 		depth_buffer = device.allocator.createImage(depth_info, alloc_info);
 		depth_view = device.device.createImageView(vk::ImageViewCreateInfo(
-			{}, depth_buffer, vk::ImageViewType::e2D, depth_format, {},
+			{}, depth_buffer, vk::ImageViewType::e2D, device.depth_format, {},
 			vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1)));
 	}
 }
@@ -153,13 +153,13 @@ void Render::renderFrame() {
 			image_barrier.push_back(vk::ImageMemoryBarrier2(
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput, {},
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
-				vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, device.config.queue_family,
-				device.config.queue_family, images[image_index],
+				vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, device.graphics_queue.family,
+				device.graphics_queue.family, images[image_index],
 				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)));
 			image_barrier.push_back(vk::ImageMemoryBarrier2(
 				{}, {}, vk::PipelineStageFlagBits2::eEarlyFragmentTests,
 				vk::AccessFlagBits2::eDepthStencilAttachmentWrite, vk::ImageLayout::eUndefined,
-				vk::ImageLayout::eDepthAttachmentOptimal, device.config.queue_family, device.config.queue_family,
+				vk::ImageLayout::eDepthAttachmentOptimal, device.graphics_queue.family, device.graphics_queue.family,
 				depth_buffer, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1)));
 
 			frame.command_buffer.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, image_barrier));
@@ -194,7 +194,7 @@ void Render::renderFrame() {
 			vk::ImageMemoryBarrier2 image_barrier(
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput, {}, vk::ImageLayout::eColorAttachmentOptimal,
-				vk::ImageLayout::ePresentSrcKHR, device.config.queue_family, device.config.queue_family,
+				vk::ImageLayout::ePresentSrcKHR, device.graphics_queue.family, device.graphics_queue.family,
 				images[image_index], vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 			frame.command_buffer.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, image_barrier));
 		}
@@ -208,9 +208,10 @@ void Render::renderFrame() {
 	vk::SemaphoreSubmitInfo rendering_semaphore_info(
 		frame.rendering_semaphore, {}, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
 	vk::SubmitInfo2 submit_info({}, acquire_semaphore_info, cmd_info, rendering_semaphore_info);
-	device.queue.submit2(submit_info, frame.submission_fence);
+	device.graphics_queue.submit(submit_info, frame.submission_fence);
 
-	vk::Result result = device.queue.presentKHR(vk::PresentInfoKHR(frame.rendering_semaphore, swapchain, image_index));
+	vk::Result result =
+		device.graphics_queue.present(vk::PresentInfoKHR(frame.rendering_semaphore, swapchain, image_index));
 	if (result != vk::Result::eSuccess)
 		update_swapchain = true;
 }

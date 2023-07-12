@@ -10,7 +10,7 @@ VkBool32 debug_callback(
 	switch (static_cast<uint32_t>(pCallbackData->messageIdNumber)) {
 
 	// UNASSIGNED-BestPractices-CreateImage-Depth32Format
-	// I WANT 32-BIT DEPTH BUFFERS!
+	// AMD is fine with 32-bit Depth Buffers
 	case 0x53bb41ae:
 
 	// UNASSIGNED-BestPractices-ClearColor-NotCompressed

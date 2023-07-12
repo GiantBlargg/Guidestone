@@ -1,22 +1,34 @@
 #pragma once
 
 #include "context.hpp"
+#include "engine/types.hpp"
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan.hpp>
 
 namespace Vulkan {
+struct Queue {
+	vk::Queue queue;
+	u32 family;
+
+	void submit(vk::ArrayProxy<const vk::SubmitInfo2> const& submits, vk::Fence fence = {}) const {
+		return queue.submit2(submits, fence);
+	}
+};
+
+struct PresentQueue : public Queue {
+	[[nodiscard]] vk::Result present(const vk::PresentInfoKHR& presentInfo) const {
+		return queue.presentKHR(presentInfo);
+	}
+};
 
 struct Device {
-	struct Config {
-		vk::PhysicalDevice physical_device;
-		uint32_t queue_family;
-		vk::SurfaceFormatKHR surface_colour_format;
-		vk::PresentModeKHR present_mode;
-		bool memory_budget;
-		bool memory_priority;
-	} config;
+	vk::PhysicalDevice physical_device;
+	vk::SurfaceFormatKHR surface_format;
+	vk::PresentModeKHR present_mode;
+	vk::Format depth_format;
+
 	vk::Device device;
-	vk::Queue queue;
+	PresentQueue graphics_queue;
 
 	vma::Allocator allocator;
 
