@@ -9,10 +9,6 @@ namespace Vulkan {
 struct Queue {
 	vk::Queue queue;
 	u32 family;
-
-	void submit(vk::ArrayProxy<const vk::SubmitInfo2> const& submits, vk::Fence fence = {}) const {
-		return queue.submit2(submits, fence);
-	}
 };
 
 struct Device {
