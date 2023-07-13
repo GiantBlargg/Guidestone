@@ -15,12 +15,6 @@ struct Queue {
 	}
 };
 
-struct PresentQueue : public Queue {
-	[[nodiscard]] vk::Result present(const vk::PresentInfoKHR& presentInfo) const {
-		return queue.presentKHR(presentInfo);
-	}
-};
-
 struct Device {
 	vk::PhysicalDevice physical_device;
 	vk::SurfaceFormatKHR surface_format;
@@ -28,7 +22,7 @@ struct Device {
 	vk::Format depth_format;
 
 	vk::Device device;
-	PresentQueue graphics_queue;
+	Queue graphics_queue;
 
 	vma::Allocator allocator;
 

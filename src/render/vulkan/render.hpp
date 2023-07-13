@@ -3,6 +3,7 @@
 #include "context.hpp"
 #include "device.hpp"
 #include "engine/render.hpp"
+#include "swapchain.hpp"
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
@@ -25,16 +26,13 @@ struct ImageAllocation {
 
 class Render : public ::Render {
 	const Context context;
-
 	const Device device;
+	Swapchain swapchain;
 
-	bool update_swapchain = true;
-	vk::Extent2D surface_extent;
-	vk::SwapchainKHR swapchain;
-	std::vector<vk::Image> images;
-	std::vector<vk::ImageView> image_views;
+	vk::Extent2D frame_extent;
 	ImageAllocation depth_buffer;
 	vk::ImageView depth_view;
+	void resize_frame();
 
 	constexpr static int frame_concurrency = 2;
 	struct PerFrame {
@@ -46,14 +44,11 @@ class Render : public ::Render {
 	} per_frame[frame_concurrency];
 	size_t frame_index = -1;
 
-	void reconfigureSwapchain();
-	uint32_t acquireImage(vk::Semaphore semaphore);
-
   public:
 	Render(Context::Create);
 	~Render();
 
-	void resize(uint32_t width, uint32_t height) override;
+	void resize(uint32_t width, uint32_t height) override { swapchain.set_extent(vk::Extent2D{width, height}); }
 	void renderFrame() override;
 };
 

@@ -4,10 +4,7 @@
 
 namespace Vulkan {
 
-Render::Render(Context::Create c) : context(c), device(context) {
-
-	reconfigureSwapchain();
-
+Render::Render(Context::Create c) : context(c), device(context), swapchain(context.surface, device) {
 	for (int i = 0; i < frame_concurrency; i++) {
 		PerFrame& f = per_frame[i];
 		f.command_pool = device.device.createCommandPool(vk::CommandPoolCreateInfo({}, device.graphics_queue.family));
@@ -32,64 +29,13 @@ Render::~Render() {
 		device.device.destroyCommandPool(f.command_pool);
 	}
 
-	for (auto& image_view : image_views)
-		device.device.destroyImageView(image_view);
-
-	device.device.destroyImageView(depth_view);
-	depth_buffer.destroy(device.allocator);
-
-	device.device.destroySwapchainKHR(swapchain);
+	if (depth_view) {
+		device.device.destroyImageView(depth_view);
+		depth_buffer.destroy(device.allocator);
+	}
 }
 
-void Render::reconfigureSwapchain() {
-	update_swapchain = false;
-
-	// Seems to work without
-	device.device.waitIdle();
-
-	vk::SurfaceCapabilitiesKHR caps = device.physical_device.getSurfaceCapabilitiesKHR(context.surface);
-	if (caps.currentExtent != vk::Extent2D(0xFFFFFFFF, 0xFFFFFFFF) && caps.currentExtent != vk::Extent2D(0, 0)) {
-		surface_extent = caps.currentExtent;
-	} else {
-		if (surface_extent.width < caps.minImageExtent.width)
-			surface_extent.width = caps.minImageExtent.width;
-		if (surface_extent.height < caps.minImageExtent.height)
-			surface_extent.height = caps.minImageExtent.height;
-		if (surface_extent.width > caps.maxImageExtent.width)
-			surface_extent.width = caps.maxImageExtent.width;
-		if (surface_extent.height > caps.maxImageExtent.height)
-			surface_extent.height = caps.maxImageExtent.height;
-	}
-
-	uint32_t image_count = 3;
-	if (image_count < caps.minImageCount)
-		image_count = caps.minImageCount;
-	if (caps.maxImageCount != 0 && image_count > caps.maxImageCount)
-		image_count = caps.maxImageCount;
-
-	{
-		vk::SwapchainKHR old_swapchain = swapchain;
-
-		swapchain = device.device.createSwapchainKHR(vk::SwapchainCreateInfoKHR(
-			{}, context.surface, image_count, device.surface_format.format, device.surface_format.colorSpace,
-			surface_extent, 1, vk::ImageUsageFlagBits::eColorAttachment, vk::SharingMode::eExclusive, {},
-			vk::SurfaceTransformFlagBitsKHR::eIdentity, vk::CompositeAlphaFlagBitsKHR::eOpaque, device.present_mode,
-			true, old_swapchain));
-
-		if (old_swapchain)
-			device.device.destroySwapchainKHR(old_swapchain);
-	}
-	images = device.device.getSwapchainImagesKHR(swapchain);
-
-	for (auto& image_view : image_views)
-		device.device.destroyImageView(image_view);
-	image_views.resize(images.size());
-	for (size_t i = 0; i < image_views.size(); i++) {
-		image_views[i] = device.device.createImageView(vk::ImageViewCreateInfo(
-			{}, images[i], vk::ImageViewType::e2D, device.surface_format.format, {},
-			vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)));
-	}
-
+void Render::resize_frame() {
 	if (depth_view) {
 		device.device.destroyImageView(depth_view);
 		depth_buffer.destroy(device.allocator);
@@ -97,10 +43,9 @@ void Render::reconfigureSwapchain() {
 
 	{
 		vk::ImageCreateInfo depth_info(
-			{}, vk::ImageType::e2D, device.depth_format, vk::Extent3D(surface_extent.width, surface_extent.height, 1),
-			1, 1, vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal,
-			vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::SharingMode::eExclusive, device.graphics_queue.family,
-			vk::ImageLayout::eUndefined);
+			{}, vk::ImageType::e2D, device.depth_format, vk::Extent3D(frame_extent.width, frame_extent.height, 1), 1, 1,
+			vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
+			vk::SharingMode::eExclusive, device.graphics_queue.family, vk::ImageLayout::eUndefined);
 		vma::AllocationCreateInfo alloc_info;
 		alloc_info.setUsage(vma::MemoryUsage::eGpuOnly).setPriority(1);
 		depth_buffer = device.allocator.createImage(depth_info, alloc_info);
@@ -108,28 +53,6 @@ void Render::reconfigureSwapchain() {
 			{}, depth_buffer, vk::ImageViewType::e2D, device.depth_format, {},
 			vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1)));
 	}
-}
-
-void Render::resize(uint32_t width, uint32_t height) {
-	vk::Extent2D new_extent{width, height};
-	if (surface_extent == new_extent)
-		return;
-
-	update_swapchain = true;
-	surface_extent = new_extent;
-}
-
-uint32_t Render::acquireImage(vk::Semaphore semaphore) {
-	if (update_swapchain)
-		reconfigureSwapchain();
-
-	auto image_index_result = device.device.acquireNextImageKHR(swapchain, UINT64_MAX, semaphore, nullptr);
-	if (image_index_result.result != vk::Result::eSuccess) {
-		update_swapchain = true;
-		if (image_index_result.result != vk::Result::eSuboptimalKHR)
-			return acquireImage(semaphore);
-	}
-	return image_index_result.value;
 }
 
 void Render::renderFrame() {
@@ -143,7 +66,12 @@ void Render::renderFrame() {
 	device.device.resetFences(frame.submission_fence);
 	device.device.resetCommandPool(frame.command_pool);
 
-	uint32_t image_index = acquireImage(frame.acquire_semaphore);
+	auto image = swapchain.acquireImage(frame.acquire_semaphore);
+
+	if (frame_extent != swapchain.get_extent()) [[unlikely]] {
+		frame_extent = swapchain.get_extent();
+		resize_frame();
+	}
 
 	{
 		frame.command_buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
@@ -154,7 +82,7 @@ void Render::renderFrame() {
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput, {},
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
 				vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, device.graphics_queue.family,
-				device.graphics_queue.family, images[image_index],
+				device.graphics_queue.family, image,
 				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)));
 			image_barrier.push_back(vk::ImageMemoryBarrier2(
 				{}, {}, vk::PipelineStageFlagBits2::eEarlyFragmentTests,
@@ -166,13 +94,12 @@ void Render::renderFrame() {
 		}
 
 		{
-			vk::Viewport viewport(0, 0, surface_extent.width, surface_extent.height, 0, 1);
+			vk::Viewport viewport(0, 0, frame_extent.width, frame_extent.height, 0, 1);
 			frame.command_buffer.setViewport(0, viewport);
-			vk::Rect2D scissors({0, 0}, surface_extent);
+			vk::Rect2D scissors({0, 0}, frame_extent);
 			frame.command_buffer.setScissor(0, scissors);
 
-			vk::RenderingAttachmentInfo colour_attachment(
-				image_views[image_index], vk::ImageLayout::eColorAttachmentOptimal);
+			vk::RenderingAttachmentInfo colour_attachment(image, vk::ImageLayout::eColorAttachmentOptimal);
 			colour_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
 #if 1
 			vk::ClearValue clear_value(vk::ClearColorValue(std::array<float, 4>({{0.0, 0.3, 0.8, 1.0}})));
@@ -194,8 +121,8 @@ void Render::renderFrame() {
 			vk::ImageMemoryBarrier2 image_barrier(
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput, {}, vk::ImageLayout::eColorAttachmentOptimal,
-				vk::ImageLayout::ePresentSrcKHR, device.graphics_queue.family, device.graphics_queue.family,
-				images[image_index], vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+				vk::ImageLayout::ePresentSrcKHR, device.graphics_queue.family, device.graphics_queue.family, image,
+				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 			frame.command_buffer.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, image_barrier));
 		}
 
@@ -210,10 +137,7 @@ void Render::renderFrame() {
 	vk::SubmitInfo2 submit_info({}, acquire_semaphore_info, cmd_info, rendering_semaphore_info);
 	device.graphics_queue.submit(submit_info, frame.submission_fence);
 
-	vk::Result result =
-		device.graphics_queue.present(vk::PresentInfoKHR(frame.rendering_semaphore, swapchain, image_index));
-	if (result != vk::Result::eSuccess)
-		update_swapchain = true;
+	swapchain.present(frame.rendering_semaphore, image);
 }
 
 } // namespace Vulkan
