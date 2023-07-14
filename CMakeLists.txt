@@ -12,7 +12,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/)
 
 find_package(SDL2 2.26 REQUIRED CONFIG)
-find_package(Vulkan 1.3 REQUIRED)
+find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc)
 target_compile_definitions(Vulkan::Headers INTERFACE VK_NO_PROTOTYPES VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=0 VULKAN_HPP_NO_SMART_HANDLE)
 
 include(FetchContent)
@@ -23,4 +23,9 @@ FetchContent_Declare(flecs
 FetchContent_MakeAvailable(flecs)
 include(vmahpp)
 
-target_link_libraries(${PROJECT_NAME} SDL2::SDL2 Vulkan::Headers flecs::flecs_static VulkanMemoryAllocator-Hpp)
+include(shaders)
+set(shader_root ${CMAKE_CURRENT_LIST_DIR}/src/render/vulkan/shaders)
+file(GLOB_RECURSE shader_sources RELATIVE ${shader_root} CONFIGURE_DEPENDS ${shader_root}/*.vert ${shader_root}/*.frag)
+make_shader_lib(shaders "Vulkan::Shaders" vulkan1.3 ${shader_root} ${shader_sources})
+
+target_link_libraries(${PROJECT_NAME} SDL2::SDL2 Vulkan::Headers flecs::flecs_static VulkanMemoryAllocator-Hpp shaders)
