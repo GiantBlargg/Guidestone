@@ -68,7 +68,7 @@ Context::Context(Create c) {
 #ifndef NDEBUG
 	bool debug = true;
 #else
-	const bool debug = false;
+	bool debug = false;
 #endif
 
 	if (debug) {
