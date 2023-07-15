@@ -1,14 +1,23 @@
 #include "math.hpp"
+#include <cmath>
+#include <numbers>
 
-// clang-format off
-#define MATRIX_MULT(x, y) .m##x##y = a.m##x##1 * b.m1##y + a.m##x##2 * b.m2##y + a.m##x##3 * b.m3##y + a.m##x##4 * b.m4##y
-Matrix4 operator*(Matrix4& a, Matrix4& b) {
-	return Matrix4{
-		MATRIX_MULT(1, 1), MATRIX_MULT(2, 1), MATRIX_MULT(3, 1), MATRIX_MULT(4, 1),
-		MATRIX_MULT(1, 2), MATRIX_MULT(2, 2), MATRIX_MULT(3, 2), MATRIX_MULT(4, 2),
-		MATRIX_MULT(1, 3), MATRIX_MULT(2, 3), MATRIX_MULT(3, 3), MATRIX_MULT(4, 3), 
-		MATRIX_MULT(1, 4), MATRIX_MULT(2, 4), MATRIX_MULT(3, 4), MATRIX_MULT(4, 4), 
-	};
+const Matrix4 Matrix4::identity = {{
+	{1, 0, 0, 0},
+	{0, 1, 0, 0},
+	{0, 0, 1, 0},
+	{0, 0, 0, 1},
+}};
+
+Matrix4 Matrix4::perspective(f64 fovy, f64 aspect, f64 zNear) {
+	f64 radians = fovy * std::numbers::pi / 360.0;
+	f64 cot = cos(radians) / sin(radians);
+
+	Matrix4 m;
+	m[0][0] = -cot / aspect;
+	m[1][1] = cot;
+	m[2][3] = 1.0f;
+	m[3][2] = -zNear;
+
+	return m;
 }
-#undef MATRIX_MULT
-// clang-format on
