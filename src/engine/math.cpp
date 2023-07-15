@@ -9,9 +9,9 @@ const Matrix4 Matrix4::identity = {{
 	{0, 0, 0, 1},
 }};
 
-Matrix4 Matrix4::perspective(f64 fovy, f64 aspect, f64 zNear) {
-	f64 radians = fovy * std::numbers::pi / 360.0;
-	f64 cot = cos(radians) / sin(radians);
+Matrix4 Matrix4::perspective(f32 fovy, f32 aspect, f32 zNear) {
+	f32 halfFov = fovy / 2;
+	f32 cot = cos(halfFov) / sin(halfFov);
 
 	Matrix4 m;
 	m[0][0] = -cot / aspect;

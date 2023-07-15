@@ -44,7 +44,7 @@ struct Matrix4 {
 
 	// This is a little special
 	// It maps from OpenGL camera space to Vulkan NDC with reversed depth and infinite zFar
-	static Matrix4 perspective(f64 fovy, f64 aspect, f64 zNear);
+	static Matrix4 perspective(f32 fovy, f32 aspect, f32 zNear);
 };
 inline Vector4 operator*(const Matrix4& m, const Vector4& v) {
 	return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3] * v.w;
