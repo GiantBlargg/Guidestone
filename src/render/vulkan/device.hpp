@@ -27,6 +27,7 @@ struct Device {
 	~Device();
 
 	operator vk::Device() const { return device; }
+	const vk::Device* operator->() const { return &device; }
 };
 
 } // namespace Vulkan

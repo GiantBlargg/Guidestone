@@ -43,12 +43,13 @@ VkBool32 debug_callback(
 		break;
 	}
 
-	Log::log(Log::Msg{
-		.severity = severity,
-		.type = "Vulkan " + to_string(static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(messageTypes)) + " " +
-			to_string(static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity)) + ": " +
-			pCallbackData->pMessageIdName,
-		.msg = pCallbackData->pMessage});
+	std::string message_type = "Vulkan " + to_string(static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(messageTypes)) +
+		" " + to_string(static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity));
+	if (pCallbackData->pMessageIdName != nullptr) {
+		message_type = message_type + ": " + pCallbackData->pMessageIdName;
+	}
+
+	Log::log(Log::Msg{.severity = severity, .type = message_type, .msg = pCallbackData->pMessage});
 
 	return false;
 }

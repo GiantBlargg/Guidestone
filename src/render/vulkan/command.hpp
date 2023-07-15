@@ -14,15 +14,13 @@ template <size_t N, class T = Empty> class Command {
   public:
 	const size_t size = N;
 
-	class Instance {
-		friend Command<N, T>;
-
+	struct Instance {
 		vk::CommandPool pool;
 		vk::CommandBuffer buffer;
 		vk::Fence fence;
 
-	  public:
 		T data;
+
 		vk::CommandBuffer* operator->() { return &buffer; }
 	};
 
@@ -65,12 +63,13 @@ template <size_t N, class T = Empty> class Command {
 		i.buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 		return i;
 	};
-	void submit(
+	vk::Fence submit(
 		Instance& i, vk::ArrayProxyNoTemporaries<const vk::SemaphoreSubmitInfo> const& waitSemaphoreInfos,
 		vk::ArrayProxyNoTemporaries<const vk::SemaphoreSubmitInfo> const& signalSemaphoreInfos) {
 		i.buffer.end();
 		vk::CommandBufferSubmitInfo cmd_info(i.buffer);
 		queue.queue.submit2(vk::SubmitInfo2({}, waitSemaphoreInfos, cmd_info, signalSemaphoreInfos), i.fence);
+		return i.fence;
 	}
 };
 

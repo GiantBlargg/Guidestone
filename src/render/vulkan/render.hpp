@@ -14,15 +14,42 @@ struct ImageAllocation {
 	vk::Image image;
 	vma::Allocation alloc;
 
-	ImageAllocation& operator=(const std::pair<vk::Image, vma::Allocation> p) {
+	ImageAllocation() = default;
+	ImageAllocation(const std::pair<vk::Image, vma::Allocation>& p) : image(p.first), alloc(p.second) {}
+
+	ImageAllocation& operator=(const std::pair<vk::Image, vma::Allocation>& p) {
 		image = p.first;
 		alloc = p.second;
 		return *this;
 	}
 
+	explicit operator bool() { return image; }
+
 	operator vk::Image() { return image; }
+	operator vma::Allocation() { return alloc; }
 
 	void destroy(vma::Allocator allocator) { return allocator.destroyImage(image, alloc); }
+};
+
+struct BufferAllocation {
+	vk::Buffer buffer;
+	vma::Allocation alloc;
+
+	BufferAllocation() = default;
+	BufferAllocation(const std::pair<vk::Buffer, vma::Allocation>& p) : buffer(p.first), alloc(p.second) {}
+
+	BufferAllocation& operator=(const std::pair<vk::Buffer, vma::Allocation>& p) {
+		buffer = p.first;
+		alloc = p.second;
+		return *this;
+	}
+
+	explicit operator bool() { return buffer; }
+
+	operator vk::Buffer() { return buffer; }
+	operator vma::Allocation() { return alloc; }
+
+	void destroy(vma::Allocator allocator) { return allocator.destroyBuffer(buffer, alloc); }
 };
 
 class Render : public ::Render {
@@ -41,12 +68,17 @@ class Render : public ::Render {
 	vk::ImageView depth_view;
 	void resize_frame();
 
+	BufferAllocation vertex_buffer;
+	vk::Pipeline default_pipeline;
+	vk::PipelineLayout layout;
+
   public:
 	Render(Context::Create);
 	~Render();
 
 	void resize(uint32_t width, uint32_t height) override { swapchain.set_extent(vk::Extent2D{width, height}); }
 	void renderFrame() override;
+	void setModelCache(const ModelCache&) override;
 };
 
 } // namespace Vulkan
