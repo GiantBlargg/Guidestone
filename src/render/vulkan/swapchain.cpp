@@ -4,16 +4,16 @@ namespace Vulkan {
 
 Swapchain::~Swapchain() {
 	for (auto& image_view : image_views)
-		device.device.destroyImageView(image_view);
+		device->destroyImageView(image_view);
 
-	device.device.destroySwapchainKHR(swapchain);
+	device->destroySwapchainKHR(swapchain);
 }
 
 void Swapchain::reconfigureSwapchain() {
 	update = false;
 
 	// Seems to work without
-	device.device.waitIdle();
+	device->waitIdle();
 
 	vk::SurfaceCapabilitiesKHR caps = device.physical_device.getSurfaceCapabilitiesKHR(surface);
 	if (caps.currentExtent != vk::Extent2D(0xFFFFFFFF, 0xFFFFFFFF) && caps.currentExtent != vk::Extent2D(0, 0)) {
@@ -38,22 +38,22 @@ void Swapchain::reconfigureSwapchain() {
 	{
 		vk::SwapchainKHR old_swapchain = swapchain;
 
-		swapchain = device.device.createSwapchainKHR(vk::SwapchainCreateInfoKHR(
+		swapchain = device->createSwapchainKHR(vk::SwapchainCreateInfoKHR(
 			{}, surface, image_count, device.surface_format.format, device.surface_format.colorSpace, extent, 1,
 			vk::ImageUsageFlagBits::eColorAttachment, vk::SharingMode::eExclusive, {},
 			vk::SurfaceTransformFlagBitsKHR::eIdentity, vk::CompositeAlphaFlagBitsKHR::eOpaque, device.present_mode,
 			true, old_swapchain));
 
 		if (old_swapchain)
-			device.device.destroySwapchainKHR(old_swapchain);
+			device->destroySwapchainKHR(old_swapchain);
 	}
-	images = device.device.getSwapchainImagesKHR(swapchain);
+	images = device->getSwapchainImagesKHR(swapchain);
 
 	for (auto& image_view : image_views)
-		device.device.destroyImageView(image_view);
+		device->destroyImageView(image_view);
 	image_views.resize(images.size());
 	for (size_t i = 0; i < image_views.size(); i++) {
-		image_views[i] = device.device.createImageView(vk::ImageViewCreateInfo(
+		image_views[i] = device->createImageView(vk::ImageViewCreateInfo(
 			{}, images[i], vk::ImageViewType::e2D, device.surface_format.format, {},
 			vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)));
 	}
@@ -63,7 +63,7 @@ Swapchain::Image Swapchain::acquireImage(vk::Semaphore semaphore) {
 	if (update)
 		reconfigureSwapchain();
 
-	auto image_index_result = device.device.acquireNextImageKHR(swapchain, UINT64_MAX, semaphore, nullptr);
+	auto image_index_result = device->acquireNextImageKHR(swapchain, UINT64_MAX, semaphore, nullptr);
 	if (image_index_result.result != vk::Result::eSuccess) {
 		update = true;
 		if (image_index_result.result != vk::Result::eSuboptimalKHR)
