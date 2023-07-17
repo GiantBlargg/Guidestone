@@ -1,7 +1,7 @@
 include(FetchContent)
 FetchContent_Declare(vmahpp
 	GIT_REPOSITORY https://github.com/YaaZ/VulkanMemoryAllocator-Hpp.git
-	GIT_TAG b75a435
+	GIT_TAG eca325b
 	GIT_SUBMODULES VulkanMemoryAllocator
 )
 
@@ -11,5 +11,5 @@ if(NOT vmahpp_POPULATED)
 endif()
 
 add_library(VulkanMemoryAllocator-Hpp INTERFACE)
-target_include_directories(VulkanMemoryAllocator-Hpp INTERFACE ${vmahpp_SOURCE_DIR}/include ${vmahpp_SOURCE_DIR}/VulkanMemoryAllocator/include)
+target_include_directories(VulkanMemoryAllocator-Hpp SYSTEM INTERFACE ${vmahpp_SOURCE_DIR}/include ${vmahpp_SOURCE_DIR}/VulkanMemoryAllocator/include)
 target_compile_definitions(VulkanMemoryAllocator-Hpp INTERFACE VMA_STATIC_VULKAN_FUNCTIONS=0 VMA_DYNAMIC_VULKAN_FUNCTIONS=0)
