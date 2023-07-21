@@ -9,10 +9,6 @@ template <class T> inline size_t vectorSize(std::vector<T> v) { return v.size() 
 
 Render::Render(Context::Create c)
 	: context(c), device(context), swapchain(context.surface, device), render_cmd(device, device.graphics_queue) {
-	render_cmd.forEach([device = device.device](PerFrame& f) {
-		f.acquire_semaphore = device.createSemaphore({});
-		f.rendering_semaphore = device.createSemaphore({});
-	});
 
 	{
 		vk::ShaderModule vertex_shader =
@@ -91,11 +87,6 @@ Render::~Render() {
 
 	device->destroy(default_pipeline);
 	device->destroy(layout);
-
-	render_cmd.forEach([device = device.device](PerFrame& f) {
-		device.destroySemaphore(f.acquire_semaphore);
-		device.destroySemaphore(f.rendering_semaphore);
-	});
 }
 
 void Render::resize_frame() {
@@ -129,7 +120,7 @@ void Render::renderFrame(FrameInfo frame_info) {
 
 	auto& cmd = render_cmd.get();
 
-	auto image = swapchain.acquireImage(cmd.data.acquire_semaphore);
+	auto image = swapchain.acquireImage(cmd.acquire_semaphore);
 
 	if (frame_extent != swapchain.get_extent()) [[unlikely]] {
 		frame_extent = swapchain.get_extent();
@@ -190,13 +181,9 @@ void Render::renderFrame(FrameInfo frame_info) {
 		cmd->pipelineBarrier2(vk::DependencyInfo({}, {}, {}, image_barrier));
 	}
 
-	vk::SemaphoreSubmitInfo acquire_semaphore_info(
-		cmd.data.acquire_semaphore, {}, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
-	vk::SemaphoreSubmitInfo rendering_semaphore_info(
-		cmd.data.rendering_semaphore, {}, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
-	render_cmd.submit(cmd, acquire_semaphore_info, rendering_semaphore_info);
+	render_cmd.submit(cmd);
 
-	swapchain.present(cmd.data.rendering_semaphore, image);
+	swapchain.present(cmd.rendering_semaphore, image);
 }
 
 void Render::setModelCache(const ModelCache& mc) {

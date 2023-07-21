@@ -57,11 +57,7 @@ class Render : public ::Render {
 	const Device device;
 	Swapchain swapchain;
 
-	struct PerFrame {
-		vk::Semaphore acquire_semaphore;
-		vk::Semaphore rendering_semaphore;
-	};
-	Command<3, PerFrame> render_cmd;
+	RenderCommand render_cmd;
 
 	struct Uniform {
 		Matrix4 camera; // Projection * View
