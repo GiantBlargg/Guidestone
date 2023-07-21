@@ -15,7 +15,6 @@ Render::Render(Context::Create c)
 	});
 
 	{
-
 		vk::ShaderModule vertex_shader =
 			device->createShaderModule(vk::ShaderModuleCreateInfo({}, Shaders::default_vert));
 		vk::ShaderModule fragment_shader =
@@ -119,7 +118,14 @@ void Render::resize_frame() {
 	}
 }
 
-void Render::renderFrame() {
+void Render::renderFrame(FrameInfo frame_info) {
+
+	const Camera& camera = frame_info.camera;
+	f32 aspect = static_cast<f32>(frame_extent.width) / static_cast<f32>(frame_extent.height);
+
+	Matrix4 proj = Matrix4::perspective(camera.fov, aspect, camera.near_clip);
+	Matrix4 view = Matrix4::lookAt(camera.eye, camera.target, camera.up);
+	Uniform uniform{proj * view};
 
 	auto& cmd = render_cmd.get();
 
@@ -153,12 +159,10 @@ void Render::renderFrame() {
 		cmd->setScissor(0, scissors);
 
 		vk::RenderingAttachmentInfo colour_attachment(image, vk::ImageLayout::eColorAttachmentOptimal);
-		colour_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
+		colour_attachment.setLoadOp(vk::AttachmentLoadOp::eDontCare).setStoreOp(vk::AttachmentStoreOp::eStore);
 #if 1
 		vk::ClearValue clear_value(vk::ClearColorValue(std::array<float, 4>({{0.0, 0.3, 0.8, 1.0}})));
 		colour_attachment.setLoadOp(vk::AttachmentLoadOp::eClear).setClearValue(clear_value);
-#else
-		colour_attachment.setLoadOp(vk::AttachmentLoadOp::eDontCare);
 #endif
 		vk::RenderingAttachmentInfo depth_attachment(depth_view, vk::ImageLayout::eDepthAttachmentOptimal);
 		depth_attachment.setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -199,7 +203,7 @@ void Render::setModelCache(const ModelCache& mc) {
 	vk::BufferCreateInfo buffer_info({}, vectorSize(mc.vertices), vk::BufferUsageFlagBits::eVertexBuffer);
 	vma::AllocationCreateInfo alloc_info(
 		vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
-		vma::MemoryUsage::eAuto);
+		vma::MemoryUsage::eAutoPreferDevice);
 	vertex_buffer = device.allocator.createBuffer(buffer_info, alloc_info);
 	void* ptr = device.allocator.getAllocationInfo(vertex_buffer).pMappedData;
 	memcpy(ptr, mc.vertices.data(), vectorSize(mc.vertices));

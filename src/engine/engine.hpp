@@ -8,6 +8,8 @@ class Engine {
 
 	Render* render;
 
+	CameraSystem camera_system;
+
   public:
 	constexpr static double tick_interval = 1.0 / 16.0;
 

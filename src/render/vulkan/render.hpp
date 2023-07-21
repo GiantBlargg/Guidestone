@@ -63,6 +63,10 @@ class Render : public ::Render {
 	};
 	Command<3, PerFrame> render_cmd;
 
+	struct Uniform {
+		Matrix4 camera; // Projection * View
+	};
+
 	vk::Extent2D frame_extent;
 	ImageAllocation depth_buffer;
 	vk::ImageView depth_view;
@@ -77,7 +81,7 @@ class Render : public ::Render {
 	~Render();
 
 	void resize(uint32_t width, uint32_t height) override { swapchain.set_extent(vk::Extent2D{width, height}); }
-	void renderFrame() override;
+	void renderFrame(FrameInfo) override;
 	void setModelCache(const ModelCache&) override;
 };
 

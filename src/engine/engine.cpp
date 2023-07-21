@@ -12,4 +12,4 @@ void Engine::startGame() {
 
 void Engine::tickUpdate() {}
 
-void Engine::update(double delta) { render->renderFrame(); }
+void Engine::update(double delta) { render->renderFrame(Render::FrameInfo{camera_system.getActiveCamera()}); }
