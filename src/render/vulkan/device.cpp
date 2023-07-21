@@ -3,11 +3,8 @@
 namespace Vulkan {
 
 const std::vector<vk::Format> valid_formats = {
-	vk::Format::eR8G8B8Srgb,         vk::Format::eB8G8R8Srgb,         vk::Format::eR8G8B8A8Srgb,
-	vk::Format::eB8G8R8A8Srgb,       vk::Format::eA8B8G8R8SrgbPack32, vk::Format::eR16G16B16Sfloat,
-	vk::Format::eR16G16B16A16Sfloat, vk::Format::eR32G32B32Sfloat,    vk::Format::eR32G32B32A32Sfloat,
-	vk::Format::eR64G64B64Sfloat,    vk::Format::eR64G64B64A64Sfloat, vk::Format::eB10G11R11UfloatPack32,
-};
+	vk::Format::eR8G8B8Srgb, vk::Format::eB8G8R8Srgb, vk::Format::eR8G8B8A8Srgb, vk::Format::eB8G8R8A8Srgb,
+	vk::Format::eA8B8G8R8SrgbPack32};
 
 struct Config {
 	vk::PhysicalDevice physical_device;
