@@ -63,20 +63,26 @@ Swapchain::Image Swapchain::acquireImage(vk::Semaphore semaphore) {
 	if (update)
 		reconfigureSwapchain();
 
-	auto image_index_result = device->acquireNextImageKHR(swapchain, UINT64_MAX, semaphore, nullptr);
-	if (image_index_result.result != vk::Result::eSuccess) {
+	u32 index;
+	auto result = device->acquireNextImageKHR(swapchain, UINT64_MAX, semaphore, nullptr, &index);
+	vk::resultCheck(
+		result, "vk::Device::acquireNextImageKHR",
+		{vk::Result::eSuccess, vk::Result::eSuboptimalKHR, vk::Result::eErrorOutOfDateKHR});
+	if (result != vk::Result::eSuccess) {
 		update = true;
-		if (image_index_result.result != vk::Result::eSuboptimalKHR)
+		if (result != vk::Result::eSuboptimalKHR)
 			return acquireImage(semaphore);
 	}
-	u32 index = image_index_result.value;
 	return Swapchain::Image{index, images[index], image_views[index]};
 }
 
 void Swapchain::present(
 	const vk::ArrayProxyNoTemporaries<const vk::Semaphore>& waitSemaphores, const Swapchain::Image& image) {
-	vk::Result result =
-		device.graphics_queue.queue.presentKHR(vk::PresentInfoKHR(waitSemaphores, swapchain, image.index));
+	vk::PresentInfoKHR present_info(waitSemaphores, swapchain, image.index);
+	vk::Result result = device.graphics_queue.queue.presentKHR(&present_info);
+	vk::resultCheck(
+		result, "vk::Queue::presentKHR",
+		{vk::Result::eSuccess, vk::Result::eSuboptimalKHR, vk::Result::eErrorOutOfDateKHR});
 	if (result != vk::Result::eSuccess)
 		update = true;
 }
