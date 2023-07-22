@@ -99,7 +99,7 @@ void Render::resize_frame() {
 		vk::ImageCreateInfo depth_info(
 			{}, vk::ImageType::e2D, device.depth_format, vk::Extent3D(frame_extent.width, frame_extent.height, 1), 1, 1,
 			vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
-			vk::SharingMode::eExclusive, device.graphics_queue.family, vk::ImageLayout::eUndefined);
+			vk::SharingMode::eExclusive, {}, vk::ImageLayout::eUndefined);
 		vma::AllocationCreateInfo alloc_info;
 		alloc_info.setUsage(vma::MemoryUsage::eAutoPreferDevice).setPriority(1);
 		depth_buffer = device.allocator.createImage(depth_info, alloc_info);
