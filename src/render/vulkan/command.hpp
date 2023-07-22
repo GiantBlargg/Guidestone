@@ -20,6 +20,7 @@ class RenderCommand {
 		vk::Semaphore acquire_semaphore;
 		vk::Semaphore rendering_semaphore;
 
+		operator vk::CommandBuffer() { return cmd; }
 		vk::CommandBuffer* operator->() { return &cmd; }
 	};
 

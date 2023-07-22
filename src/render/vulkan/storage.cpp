@@ -68,6 +68,67 @@ void Storage::update_vertex_buffer(const void* src, size_t n) {
 	device.allocator.flushAllocation(vertex_buffer, 0, n);
 }
 
+void Storage::start_render(vk::CommandBuffer cmd, Swapchain::Image image) {
+	{
+		std::vector<vk::ImageMemoryBarrier2> image_barrier(2);
+		image_barrier[0]
+			.setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+			.setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+			.setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
+			.setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
+			.setImage(image)
+			.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor)
+			.setLevelCount(1)
+			.setLayerCount(1);
+		image_barrier[1]
+			.setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
+			.setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
+			.setNewLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+			.setImage(depth_buffer)
+			.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eDepth)
+			.setLevelCount(1)
+			.setLayerCount(1);
+
+		cmd.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, image_barrier));
+	}
+
+	{
+		vk::Viewport viewport(0, 0, frame_extent.width, frame_extent.height, 0, 1);
+		cmd.setViewport(0, viewport);
+		vk::Rect2D scissors({0, 0}, frame_extent);
+		cmd.setScissor(0, scissors);
+
+		vk::RenderingAttachmentInfo colour_attachment(image, vk::ImageLayout::eColorAttachmentOptimal);
+		colour_attachment.setLoadOp(vk::AttachmentLoadOp::eDontCare).setStoreOp(vk::AttachmentStoreOp::eStore);
+#if 1
+		vk::ClearValue clear_value(vk::ClearColorValue(std::array<float, 4>({{0.0, 0.3, 0.8, 1.0}})));
+		colour_attachment.setLoadOp(vk::AttachmentLoadOp::eClear).setClearValue(clear_value);
+#endif
+		vk::RenderingAttachmentInfo depth_attachment(depth_buffer.view, vk::ImageLayout::eDepthAttachmentOptimal);
+		depth_attachment.setLoadOp(vk::AttachmentLoadOp::eClear)
+			.setClearValue(vk::ClearValue(vk::ClearDepthStencilValue(0)))
+			.setStoreOp(vk::AttachmentStoreOp::eDontCare);
+		vk::RenderingInfo rendering_info({}, scissors, 1, 0, colour_attachment, &depth_attachment);
+		cmd.beginRendering(rendering_info);
+	}
+
+	vk::DeviceSize offset = 0;
+	cmd.bindVertexBuffers(0, vertex_buffer.buffer, offset);
+}
+
+void Storage::end_render(vk::CommandBuffer cmd, Swapchain::Image image) {
+	cmd.endRendering();
+
+	{
+		vk::ImageMemoryBarrier2 image_barrier(
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput, {}, vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::ePresentSrcKHR, device.graphics_queue.family, device.graphics_queue.family, image,
+			vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+		cmd.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, image_barrier));
+	}
+}
+
 Storage::Storage(const Device& d) : device(d) {}
 
 Storage::~Storage() {

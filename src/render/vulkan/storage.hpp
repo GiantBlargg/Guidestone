@@ -3,6 +3,7 @@
 #include "device.hpp"
 #include "engine/math.hpp"
 #include "engine/model.hpp"
+#include "swapchain.hpp"
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan.hpp>
 
@@ -60,6 +61,9 @@ struct Storage {
 
 	BufferAllocation vertex_buffer;
 	void update_vertex_buffer(const void* src, size_t n);
+
+	void start_render(vk::CommandBuffer, Swapchain::Image);
+	void end_render(vk::CommandBuffer, Swapchain::Image);
 
 	Storage(const Device&);
 	~Storage();
