@@ -62,6 +62,11 @@ struct Storage {
 	BufferAllocation vertex_buffer;
 	void update_vertex_buffer(const void* src, size_t n);
 
+	vk::PipelineLayout pipeline_layout;
+
+	vk::DescriptorPool uniform_pool;
+	vk::DescriptorSetLayout uniform_layout;
+	vk::DescriptorSet uniform_set;
 	BufferAllocation uniform_buffer;
 	vk::DeviceSize uniform_stride;
 	void update_uniform(const Uniform&, size_t index);
@@ -69,7 +74,7 @@ struct Storage {
 	Storage(const Device&);
 	~Storage();
 
-	void start_render(vk::CommandBuffer, Swapchain::Image);
+	void start_render(vk::CommandBuffer, Swapchain::Image, size_t index);
 	void end_render(vk::CommandBuffer, Swapchain::Image);
 };
 

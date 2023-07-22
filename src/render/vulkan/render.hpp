@@ -22,7 +22,6 @@ class Render : public ::Render {
 	RenderCommand render_cmd;
 
 	vk::Pipeline default_pipeline;
-	vk::PipelineLayout layout;
 
   public:
 	Render(Context::Create);

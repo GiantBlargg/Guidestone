@@ -76,18 +76,46 @@ void Storage::update_uniform(const Uniform& uniform, size_t index) {
 }
 
 Storage::Storage(const Device& d) : device(d) {
-	vk::DeviceSize min_stride = device.physical_device.getProperties().limits.minUniformBufferOffsetAlignment;
-	uniform_stride = (sizeof(Uniform) + min_stride - 1) & ~(min_stride - 1);
+	{
+		vk::DescriptorPoolSize pool_size(vk::DescriptorType::eUniformBufferDynamic, 1);
+		vk::DescriptorPoolCreateInfo pool_info({}, 1, pool_size);
+		uniform_pool = device->createDescriptorPool(pool_info);
 
-	vk::BufferCreateInfo uniform_info;
-	uniform_info.setSize(uniform_stride * RenderCommand::size).setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
-	vma::AllocationCreateInfo alloc_info(
-		vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
-		vma::MemoryUsage::eAuto);
-	uniform_buffer.init(device, uniform_info, alloc_info);
+		vk::DescriptorSetLayoutBinding layout_bind(
+			0, vk::DescriptorType::eUniformBufferDynamic, 1, vk::ShaderStageFlagBits::eVertex);
+		vk::DescriptorSetLayoutCreateInfo layout_info({}, layout_bind);
+		uniform_layout = device->createDescriptorSetLayout(layout_info);
+		vk::DescriptorSetAllocateInfo set_info(uniform_pool, uniform_layout);
+		uniform_set = device->allocateDescriptorSets(set_info).front();
+	}
+	{
+		vk::PipelineLayoutCreateInfo layout_info({}, uniform_layout);
+		pipeline_layout = device->createPipelineLayout(layout_info);
+	}
+
+	{
+		vk::DeviceSize min_stride = device.physical_device.getProperties().limits.minUniformBufferOffsetAlignment;
+		uniform_stride = (sizeof(Uniform) + min_stride - 1) & ~(min_stride - 1);
+
+		vk::BufferCreateInfo uniform_info;
+		uniform_info.setSize(uniform_stride * RenderCommand::size).setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
+		vma::AllocationCreateInfo alloc_info(
+			vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
+			vma::MemoryUsage::eAuto);
+		uniform_buffer.init(device, uniform_info, alloc_info);
+	}
+	{
+		vk::DescriptorBufferInfo desc_buf(uniform_buffer, 0, uniform_stride);
+		vk::WriteDescriptorSet write_sets(uniform_set, 0, 0);
+		write_sets.setDescriptorType(vk::DescriptorType::eUniformBufferDynamic).setBufferInfo(desc_buf);
+		device->updateDescriptorSets(write_sets, {});
+	}
 }
 
 Storage::~Storage() {
+	device->destroy(pipeline_layout);
+	device->destroy(uniform_layout);
+	device->destroy(uniform_pool);
 	uniform_buffer.destroy(device);
 
 	if (depth_buffer) {
@@ -99,7 +127,7 @@ Storage::~Storage() {
 	}
 }
 
-void Storage::start_render(vk::CommandBuffer cmd, Swapchain::Image image) {
+void Storage::start_render(vk::CommandBuffer cmd, Swapchain::Image image, size_t index) {
 	{
 		std::vector<vk::ImageMemoryBarrier2> image_barrier(2);
 		image_barrier[0]
@@ -142,9 +170,14 @@ void Storage::start_render(vk::CommandBuffer cmd, Swapchain::Image image) {
 		vk::RenderingInfo rendering_info({}, scissors, 1, 0, colour_attachment, &depth_attachment);
 		cmd.beginRendering(rendering_info);
 	}
-
-	vk::DeviceSize offset = 0;
-	cmd.bindVertexBuffers(0, vertex_buffer.buffer, offset);
+	{
+		vk::DeviceSize offset = 0;
+		cmd.bindVertexBuffers(0, vertex_buffer.buffer, offset);
+	}
+	{
+		vk::DeviceSize offset = index * uniform_stride;
+		cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout, 0, uniform_set, offset);
+	}
 }
 
 void Storage::end_render(vk::CommandBuffer cmd, Swapchain::Image image) {

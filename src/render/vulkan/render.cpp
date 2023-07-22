@@ -47,9 +47,6 @@ Render::Render(Context::Create c)
 		std::vector<vk::DynamicState> dynamicStates = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
 		vk::PipelineDynamicStateCreateInfo dynamic({}, dynamicStates);
 
-		vk::PipelineLayoutCreateInfo layout_info;
-		layout = device->createPipelineLayout(layout_info);
-
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipeline_create;
 		pipeline_create.get()
 			.setStages(stages)
@@ -61,7 +58,7 @@ Render::Render(Context::Create c)
 			.setPDepthStencilState(&depth)
 			.setPColorBlendState(&blend)
 			.setPDynamicState(&dynamic)
-			.setLayout(layout);
+			.setLayout(storage.pipeline_layout);
 
 		pipeline_create.get<vk::PipelineRenderingCreateInfo>()
 			.setColorAttachmentFormats(device.surface_format.format)
@@ -78,7 +75,6 @@ Render::~Render() {
 	device->waitIdle();
 
 	device->destroy(default_pipeline);
-	device->destroy(layout);
 }
 
 void Render::renderFrame(FrameInfo frame_info) {
@@ -100,7 +96,7 @@ void Render::renderFrame(FrameInfo frame_info) {
 		storage.update_uniform(uniform, render_cmd.get_index());
 	}
 
-	storage.start_render(cmd, image);
+	storage.start_render(cmd, image, render_cmd.get_index());
 
 	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, default_pipeline);
 

@@ -2,4 +2,6 @@
 
 layout(location = 0) in vec3 pos;
 
-void main() { gl_Position = vec4(pos / 70.0, 1.0); }
+layout(set = 0, binding = 0) uniform _ { mat4 camera; };
+
+void main() { gl_Position = camera * vec4(pos, 1.0); }
