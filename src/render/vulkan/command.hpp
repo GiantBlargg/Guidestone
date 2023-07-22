@@ -26,6 +26,7 @@ class RenderCommand {
 
 	Instance instances[size];
 	size_t index = -1;
+	size_t get_index() { return index % size; }
 
 	RenderCommand(vk::Device d, const Queue& q);
 	~RenderCommand();

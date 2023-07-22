@@ -1,4 +1,5 @@
 #include "storage.hpp"
+#include "command.hpp"
 
 namespace Vulkan {
 
@@ -68,6 +69,36 @@ void Storage::update_vertex_buffer(const void* src, size_t n) {
 	device.allocator.flushAllocation(vertex_buffer, 0, n);
 }
 
+void Storage::update_uniform(const Uniform& uniform, size_t index) {
+	vk::DeviceSize offset = (uniform_stride * index);
+	memcpy((u8*)(uniform_buffer.ptr) + offset, &uniform, sizeof(Uniform));
+	device.allocator.flushAllocation(uniform_buffer, offset, sizeof(Uniform));
+}
+
+Storage::Storage(const Device& d) : device(d) {
+	vk::DeviceSize min_stride = device.physical_device.getProperties().limits.minUniformBufferOffsetAlignment;
+	uniform_stride = (sizeof(Uniform) + min_stride - 1) & ~(min_stride - 1);
+
+	vk::BufferCreateInfo uniform_info;
+	uniform_info.setSize(uniform_stride * RenderCommand::size).setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
+	vma::AllocationCreateInfo alloc_info(
+		vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
+		vma::MemoryUsage::eAuto);
+	uniform_buffer.init(device, uniform_info, alloc_info);
+}
+
+Storage::~Storage() {
+	uniform_buffer.destroy(device);
+
+	if (depth_buffer) {
+		depth_buffer.destroy(device);
+	}
+
+	if (vertex_buffer) {
+		vertex_buffer.destroy(device);
+	}
+}
+
 void Storage::start_render(vk::CommandBuffer cmd, Swapchain::Image image) {
 	{
 		std::vector<vk::ImageMemoryBarrier2> image_barrier(2);
@@ -126,18 +157,6 @@ void Storage::end_render(vk::CommandBuffer cmd, Swapchain::Image image) {
 			vk::ImageLayout::ePresentSrcKHR, device.graphics_queue.family, device.graphics_queue.family, image,
 			vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 		cmd.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, image_barrier));
-	}
-}
-
-Storage::Storage(const Device& d) : device(d) {}
-
-Storage::~Storage() {
-	if (depth_buffer) {
-		depth_buffer.destroy(device);
-	}
-
-	if (vertex_buffer) {
-		vertex_buffer.destroy(device);
 	}
 }
 

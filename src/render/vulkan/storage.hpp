@@ -62,11 +62,15 @@ struct Storage {
 	BufferAllocation vertex_buffer;
 	void update_vertex_buffer(const void* src, size_t n);
 
-	void start_render(vk::CommandBuffer, Swapchain::Image);
-	void end_render(vk::CommandBuffer, Swapchain::Image);
+	BufferAllocation uniform_buffer;
+	vk::DeviceSize uniform_stride;
+	void update_uniform(const Uniform&, size_t index);
 
 	Storage(const Device&);
 	~Storage();
+
+	void start_render(vk::CommandBuffer, Swapchain::Image);
+	void end_render(vk::CommandBuffer, Swapchain::Image);
 };
 
 } // namespace Vulkan

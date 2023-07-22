@@ -97,6 +97,7 @@ void Render::renderFrame(FrameInfo frame_info) {
 		Matrix4 proj = Matrix4::perspective(camera.fov, aspect, camera.near_clip);
 		Matrix4 view = Matrix4::lookAt(camera.eye, camera.target, camera.up);
 		Uniform uniform{proj * view};
+		storage.update_uniform(uniform, render_cmd.get_index());
 	}
 
 	storage.start_render(cmd, image);
