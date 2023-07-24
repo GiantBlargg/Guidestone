@@ -4,11 +4,11 @@
 #include "model.hpp"
 #include "types.hpp"
 
-// This is stuff that could change every render frame
-
 class Render {
   public:
 	virtual void resize(u32 width, u32 height) = 0;
+
+	// This is stuff that could change every render frame
 	struct FrameInfo {
 		const Camera& camera;
 	};
