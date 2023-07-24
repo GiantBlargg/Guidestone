@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
 		{},
 		[window](VkInstance instance, VkSurfaceKHR* surface) { SDL_Vulkan_CreateSurface(window, instance, surface); }};
 
-	uint sdl_vulkan_extensions_count;
+	unsigned int sdl_vulkan_extensions_count;
 	SDL_Vulkan_GetInstanceExtensions(window, &sdl_vulkan_extensions_count, nullptr);
 	vulkan_context.extensions.resize(sdl_vulkan_extensions_count);
 	SDL_Vulkan_GetInstanceExtensions(window, &sdl_vulkan_extensions_count, vulkan_context.extensions.data());
@@ -39,11 +39,11 @@ int main(int argc, char* argv[]) {
 
 	bool shutdown = false;
 
-	auto last = std::chrono::high_resolution_clock::now();
+	auto last = std::chrono::steady_clock::now();
 	double accum_time = 0;
 
 	while (!shutdown) {
-		auto now = std::chrono::high_resolution_clock::now();
+		auto now = std::chrono::steady_clock::now();
 		double delta = std::chrono::duration<double>(now - last).count();
 		last = now;
 		accum_time += delta;
@@ -77,4 +77,6 @@ int main(int argc, char* argv[]) {
 	delete render;
 
 	SDL_DestroyWindow(window);
+
+	return 0;
 }

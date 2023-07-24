@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/math.hpp"
+#include "math.hpp"
 #include "types.hpp"
 
 struct Camera {
@@ -12,7 +12,6 @@ struct Camera {
 };
 
 class CameraSystem {
-
 	Camera main_camera;
 
   public:
