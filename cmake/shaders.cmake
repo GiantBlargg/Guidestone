@@ -1,4 +1,4 @@
-function(make_shader_lib lib_name namespace glslc_env source_path)
+function(make_shader_lib lib_name namespace target_env source_path)
 	find_program(GLSLC_EXECUTABLE
 		NAMES glslc
 		HINTS "$ENV{VULKAN_SDK}/bin"
@@ -22,7 +22,7 @@ function(make_shader_lib lib_name namespace glslc_env source_path)
 		add_custom_command(
 			COMMAND ${GLSLC_EXECUTABLE}
 				${glsl_file} -o ${spv_file}
-				--target-env=${glslc_env} -mfmt=c
+				--target-env=${target_env} -mfmt=c
 				-MD -MF ${dep_file}
 
 			OUTPUT ${spv_file}
