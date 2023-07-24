@@ -12,15 +12,18 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/)
 
 find_package(SDL2 2.26 REQUIRED CONFIG)
-find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc)
-target_compile_definitions(Vulkan::Headers INTERFACE VK_NO_PROTOTYPES VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=0 VULKAN_HPP_NO_SMART_HANDLE)
 
 include(FetchContent)
+FetchContent_Declare(Vulkan-Headers
+	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers.git
+	GIT_TAG main
+)
 FetchContent_Declare(flecs
 	GIT_REPOSITORY https://github.com/SanderMertens/flecs.git
 	GIT_TAG v3.2.4
 )
-FetchContent_MakeAvailable(flecs)
+FetchContent_MakeAvailable(flecs Vulkan-Headers)
+target_compile_definitions(Vulkan-Headers INTERFACE VK_NO_PROTOTYPES VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL=0 VULKAN_HPP_NO_SMART_HANDLE)
 include(vmahpp)
 
 include(shaders)

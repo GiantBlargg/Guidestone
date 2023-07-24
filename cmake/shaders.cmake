@@ -1,4 +1,10 @@
 function(make_shader_lib lib_name namespace glslc_env source_path)
+	find_program(GLSLC_EXECUTABLE
+		NAMES glslc
+		HINTS "$ENV{VULKAN_SDK}/bin"
+		REQUIRED
+		)
+
 	cmake_parse_arguments(PARSE_ARGV 4 ARG "" "" "")
 
 	set(sources ${ARG_UNPARSED_ARGUMENTS}) 
@@ -14,7 +20,7 @@ function(make_shader_lib lib_name namespace glslc_env source_path)
 		set(dep_file ${BINARY_DIR}/${rel_path}.d)
 		set(cpp_file ${BINARY_DIR}/${rel_path}.cpp)
 		add_custom_command(
-			COMMAND Vulkan::glslc
+			COMMAND ${GLSLC_EXECUTABLE}
 				${glsl_file} -o ${spv_file}
 				--target-env=${glslc_env} -mfmt=c
 				-MD -MF ${dep_file}
