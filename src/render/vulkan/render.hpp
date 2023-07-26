@@ -10,7 +10,7 @@
 
 namespace Vulkan {
 
-class Render : public ::Render {
+class Render final : public ::Render {
 	const Context context;
 	const Device device;
 	Swapchain swapchain;
