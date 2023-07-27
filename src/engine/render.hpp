@@ -14,4 +14,6 @@ class Render {
 	};
 	virtual void renderFrame(FrameInfo) = 0;
 	virtual void setModelCache(const ModelCache&) = 0;
+
+	virtual ~Render() = default;
 };

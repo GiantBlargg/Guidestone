@@ -1,0 +1,12 @@
+#pragma once
+
+#include "input.hpp"
+#include "render.hpp"
+
+class Platform {
+  public:
+	// Only call this function during Engine::init
+	virtual std::unique_ptr<Render> init_video() = 0;
+
+	virtual void shutdown() = 0;
+};

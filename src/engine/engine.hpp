@@ -1,21 +1,31 @@
 #pragma once
 
+#include "input.hpp"
+#include "platform.hpp"
 #include "render.hpp"
 #include <flecs.h>
+#include <thread>
 
 class Engine {
-	flecs::world universe;
+  public:
+	Platform& platform;
 
-	Render* render;
+	Input input;
+
+	std::unique_ptr<Render> render;
 
 	CameraSystem camera_system;
 
+  private:
+	std::thread interactive_thread;
+	void interactive_thread_func();
+
+	Engine(Engine&) = delete;
+	Engine(Engine&&) = delete;
+
   public:
-	constexpr static double tick_interval = 1.0 / 16.0;
-
-	void init(Render*);
+	Engine(Platform&);
+	void init();
+	~Engine();
 	void startGame();
-
-	void tickUpdate();
-	void update(double delta);
 };

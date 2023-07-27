@@ -2,7 +2,15 @@
 
 #include "model.hpp"
 
-void Engine::init(Render* _render) { render = _render; }
+Engine::Engine(Platform& p) : platform(p) {}
+
+void Engine::init() {
+	render = platform.init_video();
+
+	interactive_thread = std::thread(&Engine::interactive_thread_func, this);
+};
+
+Engine::~Engine() { interactive_thread.join(); }
 
 void Engine::startGame() {
 	ModelCache model_cache;
@@ -10,6 +18,31 @@ void Engine::startGame() {
 	render->setModelCache(model_cache);
 }
 
-void Engine::tickUpdate() {}
+template <class... Ts> struct overload : Ts... {
+	using Ts::operator()...;
+};
+template <class... Ts> overload(Ts...) -> overload<Ts...>;
 
-void Engine::update(double delta) { render->renderFrame(Render::FrameInfo{camera_system.getActiveCamera()}); }
+void Engine::interactive_thread_func() {
+	// Not a true init step, just here for testing
+	// TODO: Move somewhere more suitable
+	startGame();
+
+	while (true) {
+		bool shutdown = false;
+		const std::vector<Input::Event>& events = input.get_events();
+		for (auto& event : events) {
+			std::visit(
+				overload{
+					[this](const Event::Resize& resize) { render->resize(resize.width, resize.height); },
+					[&shutdown](const Event::Quit&) { shutdown = true; }},
+				event);
+		}
+		if (shutdown)
+			break;
+
+		render->renderFrame(Render::FrameInfo{camera_system.getActiveCamera()});
+	}
+
+	platform.shutdown();
+}
