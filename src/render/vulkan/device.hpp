@@ -19,6 +19,8 @@ struct Device {
 
 	vk::Device device;
 	Queue graphics_queue;
+	Queue present_queue;
+	Queue transfer_queue;
 
 	vma::Allocator allocator;
 

@@ -8,9 +8,13 @@ const std::vector<vk::Format> valid_formats = {
 
 struct Config {
 	vk::PhysicalDevice physical_device;
-	uint32_t graphics_family;
-	uint32_t transfer_family;
-	uint32_t present_family;
+	struct Queue {
+		u32 family, index;
+		f32 priority = 1.0;
+	};
+	Queue graphics;
+	Queue transfer;
+	Queue present;
 	vk::SurfaceFormatKHR surface_format;
 	vk::PresentModeKHR present_mode;
 	vk::Format depth_format;
@@ -74,19 +78,82 @@ std::vector<Config> getConfigs(const Context& context) {
 		}
 
 		{ // Pick queues
-			bool found = false;
 			std::vector<vk::QueueFamilyProperties> queue_families = pd.getQueueFamilyProperties();
-			for (int i = 0; i < queue_families.size(); i++) {
-				if (!pd.getSurfaceSupportKHR(i, context.surface))
+			int graphics_score = -1;
+			for (u32 i = 0; i < queue_families.size(); i++) {
+				bool graphics = static_cast<bool>(queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics);
+				bool compute = static_cast<bool>(queue_families[i].queueFlags & vk::QueueFlagBits::eCompute);
+				bool present = pd.getSurfaceSupportKHR(i, context.surface);
+				if (!graphics)
+					continue;
+				if (!compute)
 					continue;
 
-				if (!(queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics))
-					continue;
-
-				found = true;
-				config.graphics_family = i;
+				int score = 10 - present;
+				if (score > graphics_score) {
+					graphics_score = score;
+					config.graphics.family = i;
+					config.graphics.index = 0;
+				}
 			}
-			if (!found)
+			if (graphics_score < 0)
+				continue;
+
+			int transfer_score = -1;
+			for (u32 i = 0; i < queue_families.size(); i++) {
+				bool graphics = static_cast<bool>(queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics);
+				bool compute = static_cast<bool>(queue_families[i].queueFlags & vk::QueueFlagBits::eCompute);
+				bool transfer = static_cast<bool>(queue_families[i].queueFlags & vk::QueueFlagBits::eTransfer);
+				bool present = pd.getSurfaceSupportKHR(i, context.surface);
+				if (!transfer)
+					continue;
+
+				u32 index = 0;
+				int score = 10 - graphics - compute - present;
+				if (i == config.graphics.family) {
+					index++;
+					score--;
+				}
+				if (index >= queue_families[i].queueCount)
+					continue;
+				if (score > transfer_score) {
+					transfer_score = score;
+					config.transfer.family = i;
+					config.transfer.index = index;
+				}
+			}
+			if (transfer_score < 0)
+				continue;
+
+			int present_score = -1;
+			for (u32 i = 0; i < queue_families.size(); i++) {
+				bool graphics = static_cast<bool>(queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics);
+				bool compute = static_cast<bool>(queue_families[i].queueFlags & vk::QueueFlagBits::eCompute);
+				bool transfer = static_cast<bool>(queue_families[i].queueFlags & vk::QueueFlagBits::eTransfer);
+				bool present = pd.getSurfaceSupportKHR(i, context.surface);
+				if (!present)
+					continue;
+
+				u32 index = 0;
+				int score = 10 - graphics - compute - transfer;
+				if (i == config.graphics.family) {
+					index++;
+					score--;
+				}
+				if (i == config.transfer.family) {
+					index++;
+					score--;
+				}
+				if (index >= queue_families[i].queueCount)
+					continue;
+				if (score > present_score) {
+					present_score = score;
+					config.present.family = i;
+					config.present.index = index;
+					config.present.priority = 0.5;
+				}
+			}
+			if (present_score < 0)
 				continue;
 		}
 
@@ -121,9 +188,22 @@ Device::Device(const Context& context) {
 	// TODO: Load choice from options
 	auto config = configs.front();
 	{
-		float queue_priority = 1.0f;
-		vk::DeviceQueueCreateInfo queue_create({}, config.graphics_family);
-		queue_create.setQueuePriorities(queue_priority);
+		std::vector<vk::DeviceQueueCreateInfo> queue_create;
+		std::vector<std::vector<f32>> priorities;
+		std::vector<Config::Queue> queue_configs = {config.graphics, config.transfer, config.present};
+		for (auto q : queue_configs) {
+			if (priorities.size() <= q.family) {
+				priorities.resize(q.family + 1);
+			}
+			assert(priorities[q.family].size() == q.index);
+			priorities[q.family].push_back(q.priority);
+		}
+		for (u32 i = 0; i < priorities.size(); i++) {
+			if (priorities[i].empty())
+				continue;
+			queue_create.push_back(vk::DeviceQueueCreateInfo({}, i, priorities[i]));
+		}
+
 		std::vector<const char*> device_ext = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 		if (config.memory_budget) {
 			device_ext.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
@@ -131,6 +211,7 @@ Device::Device(const Context& context) {
 		if (config.memory_priority) {
 			device_ext.push_back(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 		}
+
 		vk::StructureChain<
 			vk::DeviceCreateInfo, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceMemoryPriorityFeaturesEXT>
 			device_info(
@@ -148,8 +229,12 @@ Device::Device(const Context& context) {
 	present_mode = config.present_mode;
 	depth_format = config.depth_format;
 
-	graphics_queue.family = config.graphics_family;
-	graphics_queue.queue = device.getQueue(graphics_queue.family, 0);
+	graphics_queue.family = config.graphics.family;
+	graphics_queue.queue = device.getQueue(config.graphics.family, config.graphics.index);
+	transfer_queue.family = config.transfer.family;
+	transfer_queue.queue = device.getQueue(config.transfer.family, config.transfer.index);
+	present_queue.family = config.present.family;
+	present_queue.queue = device.getQueue(config.present.family, config.present.index);
 
 	{
 		vma::AllocatorCreateInfo alloc_info({}, config.physical_device, device);
