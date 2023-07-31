@@ -46,7 +46,7 @@ struct BufferAllocation {
 };
 
 struct Uniform {
-	Matrix4 camera; // Projection * View
+	mat4 camera; // Projection * View
 };
 
 struct Storage {

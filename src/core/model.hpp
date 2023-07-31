@@ -11,16 +11,16 @@ class ModelCache {
 	using index = u64;
 
 	struct Vertex {
-		Vector3 pos;
-		Vector3 normal;
-		Vector2 uv;
+		vec3 pos;
+		vec3 normal;
+		vec2 uv;
 	};
 	std::vector<Vertex> vertices;
 
 	struct Model {
 		struct Node {
 			std::vector<index> children_nodes;
-			Matrix4 transform;
+			mat4 transform;
 		};
 		std::vector<Node> nodes;
 		std::vector<index> root_nodes;

@@ -37,7 +37,7 @@ struct PolygonObject {
 	u32 pMother;        // link to parent object
 	u32 pDaughter;      // link to child object
 	u32 pSister;        // link to sibling object
-	Matrix4 localMatrix;
+	mat4 localMatrix;
 };
 template <typename T> T& operator>>(T& t, PolygonObject& p) {
 	return t >> p.pName >> p.flags >> p.iObject >> p.nameCRC >> p.nVertices >> p.nFaceNormals >> p.nVertexNormals >>
