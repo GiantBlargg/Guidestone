@@ -1,8 +1,8 @@
 #pragma once
 
 #include "device.hpp"
-#include "engine/math.hpp"
-#include "engine/model.hpp"
+#include "math.hpp"
+#include "model.hpp"
 #include "swapchain.hpp"
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan.hpp>

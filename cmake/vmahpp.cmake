@@ -12,4 +12,3 @@ endif()
 
 add_library(VulkanMemoryAllocator-Hpp INTERFACE)
 target_include_directories(VulkanMemoryAllocator-Hpp SYSTEM INTERFACE ${vmahpp_SOURCE_DIR}/include ${vmahpp_SOURCE_DIR}/VulkanMemoryAllocator/include)
-target_compile_definitions(VulkanMemoryAllocator-Hpp INTERFACE VMA_STATIC_VULKAN_FUNCTIONS=0 VMA_DYNAMIC_VULKAN_FUNCTIONS=0)

@@ -1,5 +1,6 @@
 #include "SDL_platform.hpp"
-#include "render/vulkan/render.hpp"
+
+#include "vulkan_render.hpp"
 #include <SDL_vulkan.h>
 
 SDLPlatform::SDLPlatform(int argc, char* argv[]) : args(argv, argv + argc) {

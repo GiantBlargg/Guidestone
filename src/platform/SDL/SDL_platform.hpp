@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine/engine.hpp"
-#include "engine/platform.hpp"
+#include "engine.hpp"
+#include "platform.hpp"
 #include <SDL.h>
 
 class SDLPlatform final : public Platform {

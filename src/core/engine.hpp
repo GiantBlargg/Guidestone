@@ -3,7 +3,6 @@
 #include "input.hpp"
 #include "platform.hpp"
 #include "render.hpp"
-#include <flecs.h>
 #include <thread>
 
 class Engine {

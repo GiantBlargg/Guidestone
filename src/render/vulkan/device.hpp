@@ -1,7 +1,7 @@
 #pragma once
 
 #include "context.hpp"
-#include "engine/types.hpp"
+#include "types.hpp"
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan.hpp>
 

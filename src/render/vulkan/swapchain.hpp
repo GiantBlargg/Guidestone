@@ -1,7 +1,7 @@
 #pragma once
 
 #include "device.hpp"
-#include "engine/types.hpp"
+#include "types.hpp"
 #include <vulkan/vulkan.hpp>
 
 namespace Vulkan {
