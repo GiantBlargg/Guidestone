@@ -17,6 +17,7 @@ class Input {
 		std::optional<uvec2> resize;
 		std::optional<vec2> mouse_position;
 		vec2 mouse_relative = {0, 0};
+		f32 scroll = 0.0;
 	};
 
   private:
@@ -55,5 +56,9 @@ class Input {
 	void mouse_relative(vec2 rel) {
 		std::unique_lock lock(state_mutex);
 		state[active_state].mouse_relative += rel;
+	}
+	void mouse_scroll(f32 scroll) {
+		std::unique_lock lock(state_mutex);
+		state[active_state].scroll += scroll;
 	}
 };

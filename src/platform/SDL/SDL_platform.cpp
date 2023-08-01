@@ -77,6 +77,9 @@ void SDLPlatform::event_proc(const SDL_Event& ev) {
 
 		engine->active.input.mouse_button(button, ev.button.state);
 	} break;
+	case SDL_MOUSEWHEEL: {
+		engine->active.input.mouse_scroll(ev.wheel.preciseY);
+	} break;
 	}
 };
 
