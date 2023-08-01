@@ -16,10 +16,17 @@ template <typename T = f32> struct Vector2 {
 	T& operator[](int axis) { return ((T*)this)[axis]; }
 
 	friend inline Vector2 operator-(const Vector2& v) { return {-v.x, -v.y}; }
+
 	friend inline Vector2 operator*(const Vector2& v, T s) { return {v.x * s, v.y * s}; }
 	friend inline Vector2 operator/(const Vector2& v, T s) { return {v.x / s, v.y / s}; }
 	friend inline Vector2 operator+(const Vector2& a, const Vector2& b) { return {a.x + b.x, a.y + b.y}; }
 	friend inline Vector2 operator-(const Vector2& a, const Vector2& b) { return {a.x - b.x, a.y - b.y}; }
+
+	friend inline Vector2 operator*=(Vector2& v, T s) { return {v.x *= s, v.y *= s}; }
+	friend inline Vector2 operator/=(Vector2& v, T s) { return {v.x /= s, v.y /= s}; }
+	friend inline Vector2 operator+=(Vector2& a, const Vector2& b) { return {a.x += b.x, a.y += b.y}; }
+	friend inline Vector2 operator-=(Vector2& a, const Vector2& b) { return {a.x -= b.x, a.y -= b.y}; }
+
 	friend inline T operator*(const Vector2& a, const Vector2 b) { return a.x * b.x + a.y * b.y; }
 
 	friend inline T lengthSquared(const Vector2& v) { return v.x * v.x + v.y * v.y; }
@@ -38,10 +45,16 @@ template <typename T = f32> struct Vector3 {
 	T& operator[](int axis) { return ((T*)this)[axis]; }
 
 	friend inline Vector3 operator-(const Vector3& v) { return {-v.x, -v.y, -v.z}; }
+
 	friend inline Vector3 operator*(const Vector3& v, T s) { return {v.x * s, v.y * s, v.z * s}; }
 	friend inline Vector3 operator/(const Vector3& v, T s) { return {v.x / s, v.y / s, v.z / s}; }
 	friend inline Vector3 operator+(const Vector3& a, const Vector3& b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
 	friend inline Vector3 operator-(const Vector3& a, const Vector3& b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
+
+	friend inline Vector3 operator*=(Vector3& v, T s) { return {v.x *= s, v.y *= s, v.z *= s}; }
+	friend inline Vector3 operator/=(Vector3& v, T s) { return {v.x /= s, v.y /= s, v.z /= s}; }
+	friend inline Vector3 operator+=(Vector3& a, const Vector3& b) { return {a.x += b.x, a.y += b.y, a.z += b.z}; }
+	friend inline Vector3 operator-=(Vector3& a, const Vector3& b) { return {a.x -= b.x, a.y -= b.y, a.z -= b.z}; }
 
 	// Dot product
 	friend inline T operator*(const Vector3& a, const Vector3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
@@ -64,6 +77,7 @@ template <typename T = f32> struct Vector4 {
 	T& operator[](int axis) { return ((T*)this)[axis]; }
 
 	friend inline Vector4 operator-(const Vector4& v) { return {-v.x, -v.y, -v.z, -v.w}; }
+
 	friend inline Vector4 operator*(const Vector4& v, T s) { return {v.x * s, v.y * s, v.z * s, v.w * s}; }
 	friend inline Vector4 operator/(const Vector4& v, T s) { return {v.x / s, v.y / s, v.z / s, v.w / s}; }
 	friend inline Vector4 operator+(const Vector4& a, const Vector4& b) {
@@ -72,6 +86,16 @@ template <typename T = f32> struct Vector4 {
 	friend inline Vector4 operator-(const Vector4& a, const Vector4& b) {
 		return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w};
 	}
+
+	friend inline Vector4 operator*=(Vector4& v, T s) { return {v.x *= s, v.y *= s, v.z *= s, v.w *= s}; }
+	friend inline Vector4 operator/=(Vector4& v, T s) { return {v.x /= s, v.y /= s, v.z /= s, v.w /= s}; }
+	friend inline Vector4 operator+=(Vector4& a, const Vector4& b) {
+		return {a.x += b.x, a.y += b.y, a.z += b.z, a.w += b.w};
+	}
+	friend inline Vector4 operator-=(Vector4& a, const Vector4& b) {
+		return {a.x -= b.x, a.y -= b.y, a.z -= b.z, a.w -= b.w};
+	}
+
 	friend inline T operator*(const Vector4& a, const Vector4 b) {
 		return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 	}
@@ -115,9 +139,14 @@ template <typename T = f32> struct Matrix4 {
 	friend inline Vector4<T> operator*(const Matrix4& m, const Vector4<T>& v) {
 		return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3] * v.w;
 	}
+
 	friend inline Matrix4 operator*(const Matrix4& a, const Matrix4& b) {
 		return {a * b[0], a * b[1], a * b[2], a * b[3]};
 	}
+	friend inline Matrix4 operator*=(Matrix4& a, const Matrix4& b) {
+		return {a *= b[0], a *= b[1], a *= b[2], a *= b[3]};
+	}
+
 	template <typename R> friend R& operator>>(R& r, Matrix4& m) { return r >> m[0] >> m[1] >> m[2] >> m[3]; }
 
 	static Matrix4 translate(Vector3<T> v) {
