@@ -4,7 +4,10 @@
 #include <cmath>
 #include <numbers>
 
-template <typename T> consteval T degToRad(T deg) { return deg * std::numbers::pi / 360.0; }
+template <typename T> consteval T degToRad(T deg) {
+	static_assert(std::is_floating_point_v<T>);
+	return deg * std::numbers::pi / 360.0;
+}
 
 // All angles are radians
 
@@ -116,18 +119,79 @@ template <typename V> V normalized(const V& v) {
 	return v / mag;
 }
 
+template <typename T = f32> struct Matrix3 {
+	static_assert(std::is_floating_point_v<T>);
+
+	using Vector = Vector3<T>;
+
+	Vector columns[3];
+
+	Matrix3() = default;
+	Matrix3(Vector c0, Vector c1, Vector c2) : columns{c0, c1, c2} {}
+
+	Vector& operator[](int c) { return columns[c]; }
+	const Vector& operator[](int c) const { return columns[c]; }
+
+	static Matrix3 identity() {
+		return {
+			{1, 0, 0},
+			{0, 1, 0},
+			{0, 0, 1},
+		};
+	}
+
+	friend inline Vector operator*(const Matrix3& m, const Vector& v) { return m[0] * v.x + m[1] * v.y + m[2] * v.z; }
+
+	friend inline Matrix3 operator*(const Matrix3& a, const Matrix3& b) { return {a * b[0], a * b[1], a * b[2]}; }
+	friend inline Matrix3 operator*=(Matrix3& a, const Matrix3& b) { return {a *= b[0], a *= b[1], a *= b[2]}; }
+
+	template <typename R> friend R& operator>>(R& r, Matrix3& m) { return r >> m[0] >> m[1] >> m[2] >> m[3]; }
+
+	static Matrix3 rotateX(T angle) {
+		const T cos_angle = cos(angle);
+		const T sin_angle = sin(angle);
+		return {
+			{1, 0, 0},
+			{0, cos_angle, sin_angle},
+			{0, -sin_angle, cos_angle},
+		};
+	}
+	static Matrix3 rotateY(T angle) {
+		const T cos_angle = cos(angle);
+		const T sin_angle = sin(angle);
+		return {
+			{cos_angle, 0, -sin_angle},
+			{0, 1, 0},
+			{sin_angle, 0, cos_angle},
+		};
+	}
+	static Matrix3 rotateZ(T angle) {
+		const T cos_angle = cos(angle);
+		const T sin_angle = sin(angle);
+		return {
+			{cos_angle, sin_angle, 0},
+			{-sin_angle, cos_angle, 0},
+			{0, 0, 1},
+		};
+	}
+};
+
+using mat3 = Matrix3<f32>;
+
 template <typename T = f32> struct Matrix4 {
 	static_assert(std::is_floating_point_v<T>);
 
-	Vector4<T> columns[4];
+	using Vector = Vector4<T>;
+
+	Vector columns[4];
 
 	Matrix4() = default;
-	Matrix4(Vector4<T> c0, Vector4<T> c1, Vector4<T> c2, Vector4<T> c3) : columns{c0, c1, c2, c3} {}
+	Matrix4(Vector c0, Vector c1, Vector c2, Vector c3) : columns{c0, c1, c2, c3} {}
 
-	Vector4<T>& operator[](int c) { return columns[c]; }
-	const Vector4<T>& operator[](int c) const { return columns[c]; }
+	Vector& operator[](int c) { return columns[c]; }
+	const Vector& operator[](int c) const { return columns[c]; }
 
-	const static Matrix4 identity() {
+	static Matrix4 identity() {
 		return {
 			{1, 0, 0, 0},
 			{0, 1, 0, 0},
@@ -136,7 +200,7 @@ template <typename T = f32> struct Matrix4 {
 		};
 	}
 
-	friend inline Vector4<T> operator*(const Matrix4& m, const Vector4<T>& v) {
+	friend inline Vector operator*(const Matrix4& m, const Vector& v) {
 		return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3] * v.w;
 	}
 
