@@ -27,7 +27,7 @@ class Render final : public ::Render {
 	Render(Context::Create);
 	~Render();
 
-	void resize(uint32_t width, uint32_t height) override { swapchain.set_extent(vk::Extent2D{width, height}); }
+	void resize(uvec2 size) override { swapchain.set_extent(vk::Extent2D{size.x, size.y}); }
 	void renderFrame(FrameInfo) override;
 	void setModelCache(const ModelCache&) override;
 };

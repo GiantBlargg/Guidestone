@@ -1,30 +1,24 @@
 #pragma once
 
-#include "input.hpp"
+#include "active/active.hpp"
 #include "platform.hpp"
 #include "render.hpp"
-#include <thread>
 
 class Engine {
   public:
 	Platform& platform;
 
-	Input input;
+	Active active;
 
 	std::unique_ptr<Render> render;
 
-	CameraSystem camera_system;
-
   private:
-	std::thread interactive_thread;
-	void interactive_thread_func();
-
 	Engine(Engine&) = delete;
 	Engine(Engine&&) = delete;
 
   public:
 	Engine(Platform&);
 	void init();
-	~Engine();
+	~Engine() {}
 	void startGame();
 };

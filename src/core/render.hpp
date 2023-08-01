@@ -1,12 +1,12 @@
 #pragma once
 
-#include "camera.hpp"
+#include "active/camera.hpp"
 #include "model.hpp"
 #include "types.hpp"
 
 class Render {
   public:
-	virtual void resize(u32 width, u32 height) = 0;
+	virtual void resize(uvec2) = 0;
 
 	// This is stuff that could change every render frame
 	struct FrameInfo {

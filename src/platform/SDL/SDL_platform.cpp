@@ -36,14 +36,14 @@ int SDLPlatform::event_proc(void* userdata, SDL_Event* event) {
 void SDLPlatform::event_proc(const SDL_Event& ev) {
 	switch (ev.type) {
 	case SDL_QUIT:
-		engine->input.push_event(Event::Quit{});
+		engine->active.input.quit_request();
 		break;
 	case SDL_WINDOWEVENT: {
 		switch (ev.window.event) {
 		case SDL_WINDOWEVENT_SIZE_CHANGED: {
 			int width, height;
 			SDL_Vulkan_GetDrawableSize(window, &width, &height);
-			engine->input.push_event(Event::Resize{static_cast<u32>(width), static_cast<u32>(height)});
+			engine->active.input.resize({static_cast<u32>(width), static_cast<u32>(height)});
 		} break;
 		}
 	} break;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "input.hpp"
+#include "active/input.hpp"
 #include "render.hpp"
 
 class Platform {
