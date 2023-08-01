@@ -24,5 +24,6 @@ class SDLPlatform final : public Platform {
 	~SDLPlatform();
 
 	std::unique_ptr<Render> init_video() override;
+	void set_relative_mouse(bool enable) override;
 	void shutdown() override;
 };

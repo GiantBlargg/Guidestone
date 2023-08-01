@@ -26,9 +26,6 @@ static constexpr Format Plain{
 };
 
 void log(const Msg& msg) {
-	if (msg.severity > Log::Severity::Warning)
-		return;
-
 	const Format& format = ANSI;
 	Format::Level level_fmt;
 

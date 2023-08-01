@@ -25,6 +25,6 @@ void Active::thread_func() {
 	}
 }
 
-Active::Active(Engine& e) : engine(e) { thread = std::thread(&Active::thread_func, this); }
+Active::Active(Engine& e) : engine(e), input(e) { thread = std::thread(&Active::thread_func, this); }
 void Active::start() { start_signal.release(); }
 Active::~Active() { thread.join(); }

@@ -1,5 +1,6 @@
 #include "SDL_platform.hpp"
 
+#include "log.hpp"
 #include "vulkan_render.hpp"
 #include <SDL_vulkan.h>
 
@@ -35,9 +36,9 @@ int SDLPlatform::event_proc(void* userdata, SDL_Event* event) {
 }
 void SDLPlatform::event_proc(const SDL_Event& ev) {
 	switch (ev.type) {
-	case SDL_QUIT:
+	case SDL_QUIT: {
 		engine->active.input.quit_request();
-		break;
+	} break;
 	case SDL_WINDOWEVENT: {
 		switch (ev.window.event) {
 		case SDL_WINDOWEVENT_SIZE_CHANGED: {
@@ -45,7 +46,36 @@ void SDLPlatform::event_proc(const SDL_Event& ev) {
 			SDL_Vulkan_GetDrawableSize(window, &width, &height);
 			engine->active.input.resize({static_cast<u32>(width), static_cast<u32>(height)});
 		} break;
+		case SDL_WINDOWEVENT_LEAVE: {
+			engine->active.input.mouse_position({});
+		} break;
 		}
+	} break;
+	case SDL_MOUSEMOTION: {
+		if (SDL_GetRelativeMouseMode()) {
+			engine->active.input.mouse_relative({static_cast<f32>(ev.motion.xrel), static_cast<f32>(ev.motion.yrel)});
+		} else {
+			engine->active.input.mouse_position(vec2{static_cast<f32>(ev.motion.x), static_cast<f32>(ev.motion.y)});
+		}
+	} break;
+	case SDL_MOUSEBUTTONDOWN:
+	case SDL_MOUSEBUTTONUP: {
+		Input::MouseButton button;
+		switch (ev.button.button) {
+		case SDL_BUTTON_LEFT:
+			button = Input::MouseButton::Left;
+			break;
+		case SDL_BUTTON_RIGHT:
+			button = Input::MouseButton::Right;
+			break;
+		case SDL_BUTTON_MIDDLE:
+			button = Input::MouseButton::Middle;
+			break;
+		default:
+			return;
+		}
+
+		engine->active.input.mouse_button(button, ev.button.state);
 	} break;
 	}
 };
@@ -71,6 +101,8 @@ std::unique_ptr<Render> SDLPlatform::init_video() {
 
 	return std::make_unique<Vulkan::Render>(vulkan_context);
 }
+
+void SDLPlatform::set_relative_mouse(bool enable) { SDL_SetRelativeMouseMode(enable ? SDL_TRUE : SDL_FALSE); }
 
 void SDLPlatform::shutdown() { shutdown_semaphore.release(); }
 
