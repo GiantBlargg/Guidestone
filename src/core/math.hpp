@@ -109,6 +109,7 @@ template <typename T = f32> struct Vector4 {
 };
 
 using vec4 = Vector4<f32>;
+using u8vec4 = Vector4<u8>;
 
 template <typename V> auto length(const V& v) { return sqrt(lengthSquared(v)); }
 template <typename V> V normalized(const V& v) {
@@ -241,8 +242,8 @@ template <typename T = f32> struct Matrix4 {
 		T cot = cos(halfFov) / sin(halfFov);
 
 		Matrix4 m;
-		m[0][0] = cot / aspect;
-		m[1][1] = -cot;
+		m[0][0] = -cot / aspect;
+		m[1][1] = cot;
 		m[2][3] = -1.0f;
 		m[3][2] = zNear;
 

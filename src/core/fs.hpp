@@ -44,7 +44,7 @@ class Reader {
 			*this >> o;
 		}
 		return t;
-	};
+	}
 
 	operator bool() { return data != nullptr; }
 };

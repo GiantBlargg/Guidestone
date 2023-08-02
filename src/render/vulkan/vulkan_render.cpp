@@ -23,7 +23,10 @@ Render::Render(Context::Create c)
 		std::vector<vk::VertexInputBindingDescription> bindings = {
 			vk::VertexInputBindingDescription(0, sizeof(ModelCache::Vertex))};
 		std::vector<vk::VertexInputAttributeDescription> attrib = {
-			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0)};
+			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, offsetof(ModelCache::Vertex, pos)),
+			vk::VertexInputAttributeDescription(
+				1, 0, vk::Format::eR32G32B32Sfloat, offsetof(ModelCache::Vertex, normal)),
+			vk::VertexInputAttributeDescription(2, 0, vk::Format::eR32G32Sfloat, offsetof(ModelCache::Vertex, uv))};
 		vk::PipelineVertexInputStateCreateInfo vertex_state({}, bindings, attrib);
 
 		vk::PipelineInputAssemblyStateCreateInfo assembly_state({}, vk::PrimitiveTopology::eTriangleList);

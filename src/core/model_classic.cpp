@@ -17,8 +17,8 @@ struct GeoHeader {
 	u32 nPolygonObjects;  // Number of polygon objects.
 	u8 reserved[24];      // Reserved for future use.
 };
-template <typename T> T& operator>>(T& t, GeoHeader& g) {
-	return t >> g.identifier >> g.version >> g.pName >> g.fileSize >> g.localSize >> g.nPublicMaterials >>
+template <typename R> R& operator>>(R& r, GeoHeader& g) {
+	return r >> g.identifier >> g.version >> g.pName >> g.fileSize >> g.localSize >> g.nPublicMaterials >>
 		g.nLocalMaterials >> g.oPublicMaterial >> g.oLocalMaterial >> g.nPolygonObjects >> g.reserved;
 }
 
@@ -39,8 +39,8 @@ struct PolygonObject {
 	u32 pSister;        // link to sibling object
 	mat4 localMatrix;
 };
-template <typename T> T& operator>>(T& t, PolygonObject& p) {
-	return t >> p.pName >> p.flags >> p.iObject >> p.nameCRC >> p.nVertices >> p.nFaceNormals >> p.nVertexNormals >>
+template <typename R> R& operator>>(R& r, PolygonObject& p) {
+	return r >> p.pName >> p.flags >> p.iObject >> p.nameCRC >> p.nVertices >> p.nFaceNormals >> p.nVertexNormals >>
 		p.nPolygons >> p.pVertexList >> p.pNormalList >> p.pPolygonList >> p.pMother >> p.pDaughter >> p.pSister >>
 		p.localMatrix;
 }
@@ -60,8 +60,8 @@ struct PolyEntry {
 	u16 flags; // Flags for this polygon.
 	u8 reserved[2];
 };
-template <typename T> T& operator>>(T& t, PolyEntry& p) {
-	return t >> p.iFaceNormal >> p.iV0 >> p.iV1 >> p.iV2 >> p.iMaterial >> p.s0 >> p.t0 >> p.s1 >> p.t1 >> p.s2 >>
+template <typename R> R& operator>>(R& r, PolyEntry& p) {
+	return r >> p.iFaceNormal >> p.iV0 >> p.iV1 >> p.iV2 >> p.iMaterial >> p.s0 >> p.t0 >> p.s1 >> p.t1 >> p.s2 >>
 		p.t2 >> p.flags >> p.reserved;
 }
 
@@ -71,7 +71,29 @@ struct VertexEntry {
 	f32 z;             // Z component of this vertex.
 	i32 iVertexNormal; // Index into the point normal list.
 };
-template <typename T> T& operator>>(T& t, VertexEntry& v) { return t >> v.x >> v.y >> v.z >> v.iVertexNormal; }
+template <typename R> R& operator>>(R& r, VertexEntry& v) { return r >> v.x >> v.y >> v.z >> v.iVertexNormal; }
+
+struct MaterialEntry {
+	u32 pName;       // Offset to name of material (may be a CRC32).
+	u8vec4 ambient;  // Ambient color information.
+	u8vec4 diffuse;  // Diffuse color information.
+	u8vec4 specular; // Specular color information.
+	f32 kAlpha;      // Alpha blending information.
+	u32 texture;     // Pointer to texture information (or CRC32).
+	enum Flags : u16 {
+		Smoothing = 2,
+		DoubleSided = 8,
+		SelfIllum = 64,
+	};
+	u16 flags;              // Flags for this material.
+	u8 nFullAmbient;        // Number of self-illuminating colors in texture.
+	u8 bTexturesRegistered; // Set to TRUE when some textures have been registered.
+	u32 textureNameSave;    // the name of the texture, after the texture has been registered
+};
+template <typename R> R& operator>>(R& r, MaterialEntry& m) {
+	return r >> m.pName >> m.ambient >> m.diffuse >> m.specular >> m.kAlpha >> m.texture >> m.flags >> m.nFullAmbient >>
+		m.bTexturesRegistered >> m.textureNameSave;
+}
 
 } // namespace Classic
 
@@ -82,16 +104,28 @@ u32 ModelCache::loadClassicModel(FS::Path path) {
 
 	auto polygon_objects = data.getVector<Classic::PolygonObject>(header.nPolygonObjects);
 
+	data.cursor = header.oLocalMaterial;
+	auto materials = data.getVector<Classic::MaterialEntry>(header.nPublicMaterials + header.nLocalMaterials);
+
 	for (auto& po : polygon_objects) {
 		data.cursor = po.pPolygonList;
 		auto poly_entries = data.getVector<Classic::PolyEntry>(po.nPolygons);
 
 		for (auto& pe : poly_entries) {
 			Classic::VertexEntry v;
+			Classic::VertexEntry n;
+			u32 iNormal = pe.iFaceNormal;
+			bool smooth = materials[pe.iMaterial].flags & Classic::MaterialEntry::Flags::Smoothing;
+
 #define LOAD_VERTEX(i)                                                                                                 \
 	data.cursor = po.pVertexList + pe.iV##i * sizeof(Classic::VertexEntry);                                            \
 	v = data.get<Classic::VertexEntry>();                                                                              \
-	vertices.push_back(Vertex{.pos = {.x = v.x, .y = v.y, .z = v.z}});
+	if (smooth) {                                                                                                      \
+		iNormal = v.iVertexNormal;                                                                                     \
+	}                                                                                                                  \
+	data.cursor = po.pNormalList + iNormal * sizeof(Classic::VertexEntry);                                             \
+	n = data.get<Classic::VertexEntry>();                                                                              \
+	vertices.push_back(Vertex{.pos = {v.x, v.y, v.z}, .normal = {n.x, n.y, n.z}, .uv = {pe.s##i, pe.t##i}});
 
 			LOAD_VERTEX(0)
 			LOAD_VERTEX(1)
