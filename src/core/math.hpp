@@ -6,7 +6,7 @@
 
 template <typename T> consteval T degToRad(T deg) {
 	static_assert(std::is_floating_point_v<T>);
-	return deg * std::numbers::pi / 360.0;
+	return deg * std::numbers::pi / 180.0;
 }
 
 // All angles are radians
