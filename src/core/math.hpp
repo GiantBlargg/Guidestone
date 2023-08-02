@@ -241,10 +241,10 @@ template <typename T = f32> struct Matrix4 {
 		T cot = cos(halfFov) / sin(halfFov);
 
 		Matrix4 m;
-		m[0][0] = -cot / aspect;
-		m[1][1] = cot;
-		m[2][3] = 1.0f;
-		m[3][2] = -zNear;
+		m[0][0] = cot / aspect;
+		m[1][1] = -cot;
+		m[2][3] = -1.0f;
+		m[3][2] = zNear;
 
 		return m;
 	}
