@@ -19,6 +19,9 @@ void Active::thread_func() {
 			if (input_state.resize.has_value()) {
 				engine.render->resize(input_state.resize.value());
 			}
+
+			camera_system.main_camera.control(input_state);
+			camera_system.main_camera.set_eye_position();
 		}
 
 		engine.render->renderFrame(Render::FrameInfo{camera_system.getActiveCamera()});
