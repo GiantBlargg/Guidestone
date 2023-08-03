@@ -33,13 +33,20 @@ Reader& Reader::operator>>(u32& d) {
 	}
 }
 
-Reader& Reader::read(u8* dest, size_t n) {
+Reader& Reader::operator>>(std::string& str) {
+	size_t len = strnlen((const char*)(data + cursor), size - cursor);
+	str = std::string((const char*)(data + cursor), len);
+	cursor += len + 1;
+	return *this;
+}
+
+Reader& Reader::read(void* dest, size_t n) {
 	if (cursor + n <= size) [[likely]] {
 		memcpy(dest, data + cursor, n);
 		cursor += n;
 	} else [[unlikely]] {
 		size_t _n = size - cursor;
-		Log::error("Read past end by " + std::to_string(n - _n));
+		Log::error("Read past end");
 		memcpy(dest, data + cursor, _n);
 		cursor = size;
 	}
@@ -59,9 +66,9 @@ Reader loadRealFile(Path filename) {
 	return Reader(Reader::MemoryType::Owned, buffer, size);
 }
 
-Reader loadDataFile(Path& filename) { return loadRealFile(filename); }
+Reader loadDataFile(const Path& filename) { return loadRealFile(filename); }
 
-Reader loadClassicFile(Path& filename) {
+Reader loadClassicFile(const Path& filename) {
 	static const Path classic_path = getenv("HWC_DATA");
 	return loadRealFile(classic_path / filename);
 }

@@ -4,6 +4,7 @@
 #include "math.hpp"
 #include "types.hpp"
 #include <string>
+#include <variant>
 #include <vector>
 
 class ModelCache {
@@ -16,6 +17,14 @@ class ModelCache {
 		vec2 uv;
 	};
 	std::vector<Vertex> vertices;
+
+	struct Texture {
+		u32 width, height;
+		// Only fill one
+		std::vector<u8vec3> rgb = {};
+		std::vector<u8vec4> rgba = {};
+	};
+	std::vector<Texture> textures;
 
 	struct Model {
 		struct Node {
@@ -38,5 +47,5 @@ class ModelCache {
 	};
 	std::vector<Model> models;
 
-	u32 loadClassicModel(FS::Path);
+	u32 loadClassicModel(const FS::Path&);
 };

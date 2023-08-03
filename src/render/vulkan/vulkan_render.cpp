@@ -103,7 +103,7 @@ void Render::renderFrame(FrameInfo frame_info) {
 
 	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, default_pipeline);
 
-	cmd->draw(480, 1, 0, 0);
+	cmd->draw(561, 1, 0, 0);
 
 	storage.end_render(cmd, image);
 

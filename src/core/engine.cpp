@@ -12,6 +12,6 @@ void Engine::init() {
 
 void Engine::startGame() {
 	ModelCache model_cache;
-	model_cache.loadClassicModel("r1/lightcorvette/rl0/lod0/lightcorvette.peo");
+	model_cache.loadClassicModel("r1/resourcecollector/rl0/lod0/resourcecollector.peo");
 	render->setModelCache(model_cache);
 }

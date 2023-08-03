@@ -70,7 +70,9 @@ template <typename T = f32> struct Vector3 {
 	template <typename R> friend R& operator>>(R& r, Vector3& v) { return r >> v.x >> v.y >> v.z; }
 };
 
-using vec3 = Vector3<f32>;
+using fvec3 = Vector3<f32>;
+using u8vec3 = Vector3<u8>;
+using vec3 = fvec3;
 
 template <typename T = f32> struct Vector4 {
 	static_assert(std::is_arithmetic_v<T>);
@@ -108,8 +110,9 @@ template <typename T = f32> struct Vector4 {
 	template <typename R> friend R& operator>>(R& r, Vector4& v) { return r >> v.x >> v.y >> v.z >> v.w; }
 };
 
-using vec4 = Vector4<f32>;
+using fvec4 = Vector4<f32>;
 using u8vec4 = Vector4<u8>;
+using vec4 = fvec4;
 
 template <typename V> auto length(const V& v) { return sqrt(lengthSquared(v)); }
 template <typename V> V normalized(const V& v) {
