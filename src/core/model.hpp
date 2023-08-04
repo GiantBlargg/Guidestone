@@ -26,13 +26,17 @@ class ModelCache {
 	};
 	std::vector<Texture> textures;
 
+	struct Material {
+		index texture = std::numeric_limits<index>::max();
+	};
+	std::vector<Material> materials;
+
 	struct Model {
 		struct Node {
-			std::vector<index> children_nodes;
-			mat4 transform;
+			index parent_node = std::numeric_limits<index>::max();
+			mat4 transform = mat4::identity();
 		};
 		std::vector<Node> nodes;
-		std::vector<index> root_nodes;
 
 		struct Mesh {
 			index first_vertex;
@@ -41,9 +45,6 @@ class ModelCache {
 			index node;
 		};
 		std::vector<Mesh> meshes;
-
-		struct Material {};
-		std::vector<Material> materials;
 	};
 	std::vector<Model> models;
 

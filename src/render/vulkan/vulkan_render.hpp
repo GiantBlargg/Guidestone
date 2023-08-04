@@ -23,6 +23,8 @@ class Render final : public ::Render {
 
 	vk::Pipeline default_pipeline;
 
+	ModelCache models;
+
   public:
 	Render(Context::Create);
 	~Render();

@@ -124,6 +124,9 @@ const size_t PaletteSize = 256;
 } // namespace Classic
 
 u32 ModelCache::loadClassicModel(const FS::Path& path) {
+
+	models.emplace_back();
+
 	FS::Reader geo = FS::loadClassicFile(path);
 
 	auto header = geo.get<Classic::Geo::Header>();
@@ -131,16 +134,24 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 	auto polygon_objects = geo.getVector<Classic::Geo::PolygonObject>(header.nPolygonObjects);
 
 	geo.cursor = header.oLocalMaterial;
-	auto materials = geo.getVector<Classic::Geo::MaterialEntry>(header.nPublicMaterials + header.nLocalMaterials);
+	auto geo_materials = geo.getVector<Classic::Geo::MaterialEntry>(header.nPublicMaterials + header.nLocalMaterials);
 
 	for (auto& po : polygon_objects) {
 		auto poly_entries = geo.getVector<Classic::Geo::PolyEntry>(po.nPolygons, po.pPolygonList);
 
+		u16 last_mat = std::numeric_limits<u16>::max();
 		for (auto& pe : poly_entries) {
+			if (pe.iMaterial != last_mat) {
+				last_mat = pe.iMaterial;
+
+				// TODO: This only works for the first model loaded.
+				models.back().meshes.push_back(Model::Mesh{vertices.size(), 0, pe.iMaterial, 0});
+			}
+
 			Classic::Geo::VertexEntry v;
 			Classic::Geo::VertexEntry n;
 			u32 iNormal = pe.iFaceNormal;
-			bool smooth = materials[pe.iMaterial].flags & Classic::Geo::MaterialEntry::Flags::Smoothing;
+			bool smooth = geo_materials[pe.iMaterial].flags & Classic::Geo::MaterialEntry::Flags::Smoothing;
 
 			for (int i = 0; i < 3; i++) {
 				geo.cursor = po.pVertexList + pe.iVertex[i] * sizeof(Classic::Geo::VertexEntry);
@@ -152,10 +163,13 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 				n = geo.get<Classic::Geo::VertexEntry>();
 				vertices.push_back(Vertex{.pos = v.pos, .normal = n.pos, .uv = pe.uv[i]});
 			}
+
+			models.back().meshes.back().num_vertices = vertices.size() - models.back().meshes.back().first_vertex;
 		}
 	}
 
-	for (auto& mat : materials) {
+	for (auto& mat : geo_materials) {
+		materials.emplace_back();
 		if (mat.texture) {
 			std::string texture_name = geo.get<std::string>(mat.texture) + ".lif";
 			FS::Path texture_path = (path.parent_path() / texture_name);
@@ -184,6 +198,9 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 				tex.rgba.clear();
 				tex.rgba.shrink_to_fit();
 			}
+
+			materials.back().texture = textures.size();
+			textures.push_back(tex);
 		}
 	}
 

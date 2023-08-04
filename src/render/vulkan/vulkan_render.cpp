@@ -103,7 +103,11 @@ void Render::renderFrame(FrameInfo frame_info) {
 
 	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, default_pipeline);
 
-	cmd->draw(561, 1, 0, 0);
+	const auto& meshes = models.models.front().meshes;
+
+	for (auto& m : meshes) {
+		cmd->draw(m.num_vertices, 1, m.first_vertex, 0);
+	}
 
 	storage.end_render(cmd, image);
 
@@ -113,6 +117,7 @@ void Render::renderFrame(FrameInfo frame_info) {
 }
 
 void Render::setModelCache(const ModelCache& mc) {
+	models = mc;
 	storage.update_vertex_buffer(mc.vertices.data(), vectorSize(mc.vertices));
 }
 

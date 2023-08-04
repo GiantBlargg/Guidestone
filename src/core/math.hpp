@@ -195,7 +195,7 @@ template <typename T = f32> struct Matrix4 {
 	Vector& operator[](int c) { return columns[c]; }
 	const Vector& operator[](int c) const { return columns[c]; }
 
-	static Matrix4 identity() {
+	constexpr static Matrix4 identity() {
 		return {
 			{1, 0, 0, 0},
 			{0, 1, 0, 0},
@@ -218,7 +218,7 @@ template <typename T = f32> struct Matrix4 {
 	template <typename R> friend R& operator>>(R& r, Matrix4& m) { return r >> m[0] >> m[1] >> m[2] >> m[3]; }
 
 	static Matrix4 translate(Vector3<T> v) {
-		Matrix4 m = identity;
+		Matrix4 m = identity();
 		m[3].x = v.x;
 		m[3].y = v.y;
 		m[3].z = v.z;
