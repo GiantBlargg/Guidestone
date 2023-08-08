@@ -20,12 +20,10 @@ struct ImageAllocation {
 	operator vk::ImageView() { return view; }
 	operator vma::Allocation() { return alloc; }
 
-	void init(const Device& device, const vk::ImageCreateInfo& image_info, const vma::AllocationCreateInfo& alloc_info);
-	void init(
-		const Device& device, const vk::ImageCreateInfo& image_info, const vma::AllocationCreateInfo& alloc_info,
-		vk::ImageViewCreateInfo& view_info);
+	void init(const Device&, const vk::ImageCreateInfo&, const vma::AllocationCreateInfo&);
+	void init(const Device&, const vk::ImageCreateInfo&, const vma::AllocationCreateInfo&, vk::ImageViewCreateInfo&);
 
-	void destroy(const Device& device);
+	void destroy(const Device&);
 };
 
 struct BufferAllocation {
@@ -39,10 +37,9 @@ struct BufferAllocation {
 	operator vma::Allocation() { return alloc; }
 	operator void*() { return ptr; }
 
-	void
-	init(const Device& device, const vk::BufferCreateInfo& buffer_info, const vma::AllocationCreateInfo& alloc_info);
+	void init(const Device&, const vk::BufferCreateInfo&, const vma::AllocationCreateInfo&);
 
-	void destroy(const Device& device);
+	void destroy(const Device&);
 };
 
 struct Uniform {
