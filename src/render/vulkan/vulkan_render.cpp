@@ -8,7 +8,7 @@ namespace Vulkan {
 template <class T> inline size_t vectorSize(std::vector<T> v) { return v.size() * sizeof(T); }
 
 Render::Render(Context::Create c)
-	: context(c), device(context), swapchain(context.surface, device), storage(device),
+	: context(c), device(context), framebuffer(context.surface, device), storage(device),
 	  render_cmd(device, device.graphics_queue) {
 
 	{
@@ -84,13 +84,6 @@ void Render::renderFrame(FrameInfo frame_info) {
 
 	auto& cmd = render_cmd.get();
 
-	auto image = swapchain.acquireImage(cmd.acquire_semaphore);
-
-	if (storage.frame_extent != swapchain.get_extent()) [[unlikely]] {
-		storage.resize_frame(swapchain.get_extent());
-		aspect = static_cast<f32>(storage.frame_extent.width) / static_cast<f32>(storage.frame_extent.height);
-	}
-
 	{
 		const Camera& camera = frame_info.camera;
 		mat4 proj = mat4::perspective(camera.fov, aspect, camera.near_clip);
@@ -99,7 +92,9 @@ void Render::renderFrame(FrameInfo frame_info) {
 		storage.update_uniform(uniform, render_cmd.get_index());
 	}
 
-	storage.start_render(cmd, image, render_cmd.get_index());
+	framebuffer.start_rendering(cmd);
+
+	storage.bind_buffers(cmd, render_cmd.get_index());
 
 	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, default_pipeline);
 
@@ -109,11 +104,7 @@ void Render::renderFrame(FrameInfo frame_info) {
 		cmd->draw(m.num_vertices, 1, m.first_vertex, 0);
 	}
 
-	storage.end_render(cmd, image);
-
-	render_cmd.submit(cmd);
-
-	swapchain.present(cmd.rendering_semaphore, image);
+	framebuffer.present(render_cmd, cmd);
 }
 
 void Render::setModelCache(const ModelCache& mc) {

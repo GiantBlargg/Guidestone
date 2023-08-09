@@ -3,6 +3,7 @@
 #include "command.hpp"
 #include "context.hpp"
 #include "device.hpp"
+#include "framebuffer.hpp"
 #include "render.hpp"
 #include "storage.hpp"
 #include "swapchain.hpp"
@@ -13,11 +14,11 @@ namespace Vulkan {
 class Render final : public ::Render {
 	const Context context;
 	const Device device;
-	Swapchain swapchain;
+
+	Framebuffer framebuffer;
+	f32 aspect = 0;
 
 	Storage storage;
-
-	f32 aspect = 0;
 
 	RenderCommand render_cmd;
 
@@ -29,7 +30,10 @@ class Render final : public ::Render {
 	Render(Context::Create);
 	~Render();
 
-	void resize(uvec2 size) override { swapchain.set_extent(vk::Extent2D{size.x, size.y}); }
+	void resize(uvec2 size) override {
+		framebuffer.resize(size);
+		aspect = static_cast<f32>(size.x) / static_cast<f32>(size.y);
+	}
 	void renderFrame(FrameInfo) override;
 	void setModelCache(const ModelCache&) override;
 };

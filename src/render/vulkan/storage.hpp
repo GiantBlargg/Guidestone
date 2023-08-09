@@ -51,11 +51,6 @@ struct Storage {
 	const Device& device;
 
   public:
-	vk::Extent2D frame_extent;
-	void resize_frame(vk::Extent2D);
-
-	ImageAllocation depth_buffer;
-
 	BufferAllocation vertex_buffer;
 	void update_vertex_buffer(const void* src, size_t n);
 
@@ -71,8 +66,7 @@ struct Storage {
 	Storage(const Device&);
 	~Storage();
 
-	void start_render(vk::CommandBuffer, Swapchain::Image, size_t index);
-	void end_render(vk::CommandBuffer, Swapchain::Image);
+	void bind_buffers(vk::CommandBuffer, size_t index);
 };
 
 } // namespace Vulkan

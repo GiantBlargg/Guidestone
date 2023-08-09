@@ -13,10 +13,6 @@ VkBool32 debug_callback(
 	// AMD is fine with 32-bit Depth Buffers
 	case 0x53bb41ae:
 
-	// UNASSIGNED-BestPractices-ClearColor-NotCompressed
-	// Will Eventually switch to DontCare
-	case 0x6f7a814b:
-
 	// UNASSIGNED-BestPractices-vkCreateInstance-specialuse-extension-debugging
 	// Debugging is disabled in Release
 	case 0x822806fa:
