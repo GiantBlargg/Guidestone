@@ -77,7 +77,7 @@ Storage::Storage(const Device& d) : device(d) {
 		uniform_stride = (sizeof(Uniform) + min_stride - 1) & ~(min_stride - 1);
 
 		vk::BufferCreateInfo uniform_info;
-		uniform_info.setSize(uniform_stride * RenderCommand::size).setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
+		uniform_info.setSize(uniform_stride * Command::size).setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
 		vma::AllocationCreateInfo alloc_info(
 			vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
 			vma::MemoryUsage::eAuto);

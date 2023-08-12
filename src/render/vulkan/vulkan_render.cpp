@@ -9,7 +9,7 @@ template <class T> inline size_t vectorSize(std::vector<T> v) { return v.size() 
 
 Render::Render(Context::Create c)
 	: context(c), device(context), framebuffer(context.surface, device), storage(device),
-	  render_cmd(device, device.graphics_queue) {
+	  cmd(device, device.graphics_queue) {
 
 	{
 		vk::ShaderModule vertex_shader =
@@ -82,19 +82,19 @@ Render::~Render() {
 
 void Render::renderFrame(FrameInfo frame_info) {
 
-	auto& cmd = render_cmd.get();
+	cmd.begin();
 
 	{
 		const Camera& camera = frame_info.camera;
 		mat4 proj = mat4::perspective(camera.fov, aspect, camera.near_clip);
 		mat4 view = mat4::lookAt(camera.eye, camera.target, camera.up);
 		Uniform uniform{proj * view};
-		storage.update_uniform(uniform, render_cmd.get_index());
+		storage.update_uniform(uniform, cmd.get_index());
 	}
 
 	framebuffer.start_rendering(cmd);
 
-	storage.bind_buffers(cmd, render_cmd.get_index());
+	storage.bind_buffers(cmd, cmd.get_index());
 
 	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, default_pipeline);
 
@@ -104,7 +104,7 @@ void Render::renderFrame(FrameInfo frame_info) {
 		cmd->draw(m.num_vertices, 1, m.first_vertex, 0);
 	}
 
-	framebuffer.present(render_cmd, cmd);
+	framebuffer.present(cmd);
 }
 
 void Render::setModelCache(const ModelCache& mc) {

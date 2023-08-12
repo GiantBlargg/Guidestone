@@ -20,7 +20,7 @@ class Render final : public ::Render {
 
 	Storage storage;
 
-	RenderCommand render_cmd;
+	Command cmd;
 
 	vk::Pipeline default_pipeline;
 

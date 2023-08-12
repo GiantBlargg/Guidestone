@@ -2,8 +2,21 @@
 
 namespace Vulkan {
 
-Framebuffer::Framebuffer(const vk::SurfaceKHR& s, const Device& d) : device(d), swapchain(s, device) {}
+Framebuffer::Framebuffer(const vk::SurfaceKHR& s, const Device& d) : device(d), swapchain(s, device) {
+	for (auto& s : acquire_semaphores) {
+		s = device->createSemaphore({});
+	}
+	for (auto& s : present_semaphores) {
+		s = device->createSemaphore({});
+	}
+}
 Framebuffer::~Framebuffer() {
+	for (auto& s : acquire_semaphores) {
+		device->destroySemaphore(s);
+	}
+	for (auto& s : present_semaphores) {
+		device->destroySemaphore(s);
+	}
 	if (depth_buffer) {
 		depth_buffer.destroy(device);
 	}
@@ -32,8 +45,10 @@ void Framebuffer::resize_frame(vk::Extent2D size) {
 	depth_buffer.init(device, depth_info, alloc_info, view_info);
 }
 
-void Framebuffer::start_rendering(RenderCommand::Instance& cmd) {
-	image = swapchain.acquireImage(cmd.acquire_semaphore);
+void Framebuffer::start_rendering(Command& cmd) {
+	vk::Semaphore& semaphore = acquire_semaphores[cmd.get_index()];
+	image = swapchain.acquireImage(semaphore);
+	cmd.wait_semaphores.push_back({semaphore, {}, vk::PipelineStageFlagBits2::eColorAttachmentOutput});
 
 	if (frame_extent != swapchain.get_extent()) [[unlikely]] {
 		resize_frame(swapchain.get_extent());
@@ -81,7 +96,7 @@ void Framebuffer::start_rendering(RenderCommand::Instance& cmd) {
 	}
 }
 
-void Framebuffer::present(RenderCommand& render_cmd, RenderCommand::Instance& cmd) {
+void Framebuffer::present(Command& cmd) {
 	cmd->endRendering();
 
 	{
@@ -93,9 +108,13 @@ void Framebuffer::present(RenderCommand& render_cmd, RenderCommand::Instance& cm
 		cmd->pipelineBarrier2(vk::DependencyInfo({}, {}, {}, image_barrier));
 	}
 
-	render_cmd.submit(cmd);
+	vk::Semaphore& semaphore = present_semaphores[cmd.get_index()];
 
-	swapchain.present(cmd.rendering_semaphore, image);
+	cmd.signal_semaphores.push_back({semaphore, {}, vk::PipelineStageFlagBits2::eColorAttachmentOutput});
+
+	cmd.submit();
+
+	swapchain.present(present_semaphores[cmd.get_index()], image);
 }
 
 } // namespace Vulkan
