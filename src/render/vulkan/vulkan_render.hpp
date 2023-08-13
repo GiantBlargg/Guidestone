@@ -3,11 +3,10 @@
 #include "command.hpp"
 #include "context.hpp"
 #include "device.hpp"
-#include "framebuffer.hpp"
 #include "render.hpp"
-#include "storage.hpp"
-#include "swapchain.hpp"
-#include "uniform.hpp"
+#include "storage/framebuffer.hpp"
+#include "storage/storage.hpp"
+#include "storage/uniform.hpp"
 #include <vulkan/vulkan.hpp>
 
 namespace Vulkan {
