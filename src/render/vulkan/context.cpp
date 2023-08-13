@@ -17,6 +17,10 @@ VkBool32 debug_callback(
 	// Debugging is disabled in Release
 	case 0x822806fa:
 
+	// UNASSIGNED-BestPractices-ImageBarrierAccessLayout
+	// This warning incorrectly reports usage of new VkAccessFlagBits2
+	case 0x849fcec7:
+
 		return false;
 	default:
 		break;

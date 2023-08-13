@@ -38,27 +38,4 @@ void BufferAllocation::destroy(const Device& device) {
 		device.allocator.destroyBuffer(buffer, alloc);
 }
 
-void Storage::update_vertex_buffer(const void* src, size_t n) {
-	vk::BufferCreateInfo buffer_info({}, n, vk::BufferUsageFlagBits::eVertexBuffer);
-	vma::AllocationCreateInfo alloc_info(
-		vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
-		vma::MemoryUsage::eAutoPreferDevice);
-	vertex_buffer.init(device, buffer_info, alloc_info);
-	memcpy(vertex_buffer, src, n);
-	device.allocator.flushAllocation(vertex_buffer, 0, n);
-}
-
-Storage::Storage(const Device& d) : device(d) {}
-
-Storage::~Storage() {
-	if (vertex_buffer) {
-		vertex_buffer.destroy(device);
-	}
-}
-
-void Storage::bind_buffers(vk::CommandBuffer cmd, size_t index) {
-	vk::DeviceSize offset = 0;
-	cmd.bindVertexBuffers(0, vertex_buffer.buffer, offset);
-}
-
 } // namespace Vulkan

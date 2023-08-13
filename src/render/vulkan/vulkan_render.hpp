@@ -4,8 +4,8 @@
 #include "context.hpp"
 #include "device.hpp"
 #include "render.hpp"
+#include "storage/assets.hpp"
 #include "storage/framebuffer.hpp"
-#include "storage/storage.hpp"
 #include "storage/uniform.hpp"
 #include <vulkan/vulkan.hpp>
 
@@ -18,7 +18,7 @@ class Render final : public ::Render {
 	Framebuffer framebuffer;
 	f32 aspect = 0;
 
-	Storage storage;
+	Assets assets;
 	UniformBuffer uniform_buffer;
 
 	Command cmd;

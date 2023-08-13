@@ -8,7 +8,7 @@ namespace Vulkan {
 template <class T> inline size_t vectorSize(std::vector<T> v) { return v.size() * sizeof(T); }
 
 Render::Render(Context::Create c)
-	: context(c), device(context), framebuffer(context.surface, device), storage(device), uniform_buffer(device),
+	: context(c), device(context), framebuffer(context.surface, device), assets(device), uniform_buffer(device),
 	  cmd(device, device.graphics_queue) {
 
 	{
@@ -101,7 +101,8 @@ void Render::renderFrame(FrameInfo frame_info) {
 
 	framebuffer.start_rendering(cmd);
 
-	storage.bind_buffers(cmd, cmd.get_index());
+	vk::DeviceSize offset = 0;
+	cmd->bindVertexBuffers(0, assets.vertex.buffer, offset);
 
 	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, default_pipeline);
 
@@ -116,7 +117,7 @@ void Render::renderFrame(FrameInfo frame_info) {
 
 void Render::setModelCache(const ModelCache& mc) {
 	models = mc;
-	storage.update_vertex_buffer(mc.vertices.data(), vectorSize(mc.vertices));
+	assets.set_model_cache(mc);
 }
 
 } // namespace Vulkan

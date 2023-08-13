@@ -177,7 +177,10 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 			FS::Reader lif = FS::loadClassicFile(texture_path);
 			auto texture_header = lif.get<Classic::Lif::Header>();
 
-			Texture tex{texture_header.width, texture_header.height};
+			Texture tex{
+				.width = texture_header.width,
+				.height = texture_header.height,
+				.has_alpha = !!(texture_header.flags & Classic::Lif::Header::Flags::Alpha)};
 			tex.rgba.reserve(tex.width * tex.height);
 
 			if (texture_header.flags & Classic::Lif::Header::Flags::Paletted) {
@@ -188,15 +191,6 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 				}
 			} else {
 				Log::error("Non paletted images not yet supported.");
-			}
-
-			if (!(texture_header.flags & Classic::Lif::Header::Flags::Alpha)) { // Opaque image, discard alpha
-				tex.rgb.reserve(tex.width * tex.height);
-				for (auto c : tex.rgba) {
-					tex.rgb.push_back({c.x, c.y, c.z});
-				}
-				tex.rgba.clear();
-				tex.rgba.shrink_to_fit();
 			}
 
 			materials.back().texture = textures.size();

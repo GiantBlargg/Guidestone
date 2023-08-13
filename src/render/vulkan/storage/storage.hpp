@@ -42,18 +42,4 @@ struct BufferAllocation {
 	void destroy(const Device&);
 };
 
-struct Storage {
-  private:
-	const Device& device;
-
-  public:
-	BufferAllocation vertex_buffer;
-	void update_vertex_buffer(const void* src, size_t n);
-
-	Storage(const Device&);
-	~Storage();
-
-	void bind_buffers(vk::CommandBuffer, size_t index);
-};
-
 } // namespace Vulkan

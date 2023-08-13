@@ -20,8 +20,7 @@ class ModelCache {
 
 	struct Texture {
 		u32 width, height;
-		// Only fill one
-		std::vector<u8vec3> rgb = {};
+		bool has_alpha = false;
 		std::vector<u8vec4> rgba = {};
 	};
 	std::vector<Texture> textures;
