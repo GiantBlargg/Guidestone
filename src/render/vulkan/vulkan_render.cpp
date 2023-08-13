@@ -12,7 +12,8 @@ Render::Render(Context::Create c)
 	  cmd(device, device.graphics_queue) {
 
 	{
-		vk::PipelineLayoutCreateInfo layout_info({}, uniform_buffer.uniform_layout);
+		std::vector<vk::DescriptorSetLayout> set_layouts = {uniform_buffer.uniform_layout, assets.material_layout};
+		vk::PipelineLayoutCreateInfo layout_info({}, set_layouts);
 		pipeline_layout = device->createPipelineLayout(layout_info);
 	}
 	{
@@ -109,6 +110,9 @@ void Render::renderFrame(FrameInfo frame_info) {
 	const auto& meshes = models.models.front().meshes;
 
 	for (auto& m : meshes) {
+		cmd->bindDescriptorSets(
+			vk::PipelineBindPoint::eGraphics, pipeline_layout, 1,
+			assets.material_sets[models.materials[m.material].texture], {});
 		cmd->draw(m.num_vertices, 1, m.first_vertex, 0);
 	}
 

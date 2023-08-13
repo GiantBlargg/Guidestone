@@ -106,12 +106,29 @@ struct Staging {
 	}
 };
 
-Assets::Assets(const Device& d) : device(d), cmd(device, device.graphics_queue) {}
+Assets::Assets(const Device& d) : device(d), cmd(device, device.graphics_queue) {
+	{
+		vk::SamplerCreateInfo sampler_info;
+		sampler_info.setMaxLod(vk::LodClampNone);
+		sampler = device->createSampler(sampler_info);
+	}
+	{
+		std::vector<vk::DescriptorSetLayoutBinding> material_layout_bindings;
+		material_layout_bindings.push_back(
+			{0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, sampler});
+
+		vk::DescriptorSetLayoutCreateInfo material_layout_info({}, material_layout_bindings);
+		material_layout = device->createDescriptorSetLayout(material_layout_info);
+	}
+}
 Assets::~Assets() {
 	if (vertex)
 		vertex.destroy(device);
 	for (auto& tex : textures)
 		tex.destroy(device);
+	device->destroy(desc_pool);
+	device->destroy(material_layout);
+	device->destroy(sampler);
 }
 
 void Assets::set_model_cache(const ModelCache& models) {
@@ -126,21 +143,51 @@ void Assets::set_model_cache(const ModelCache& models) {
 
 	textures.resize(models.textures.size());
 
-	for (size_t i = 0; i < models.textures.size(); i++) {
-		const ModelCache::Texture& tex_data = models.textures[i];
-		ImageAllocation& tex = textures[i];
+	{
+		vk::DescriptorPoolSize pool_size(vk::DescriptorType::eCombinedImageSampler, textures.size());
+		vk::DescriptorPoolCreateInfo pool_info({}, textures.size(), pool_size);
+		desc_pool = device->createDescriptorPool(pool_info);
 
-		vk::Extent3D extent(tex_data.width, tex_data.height, 1);
-		vk::ImageCreateInfo tex_create;
-		tex_create.setImageType(vk::ImageType::e2D)
-			.setFormat(vk::Format::eR8G8B8A8Srgb)
-			.setExtent(extent)
-			.setMipLevels(1)
-			.setArrayLayers(1)
-			.setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
-		vma::AllocationCreateInfo tex_alloc({}, vma::MemoryUsage::eAutoPreferDevice);
-		tex.init(device, tex_create, tex_alloc);
-		staging.prepare(tex_data.rgba, tex, extent);
+		std::vector<vk::DescriptorSetLayout> set_layouts(textures.size(), material_layout);
+		vk::DescriptorSetAllocateInfo set_info(desc_pool, set_layouts);
+		material_sets = device->allocateDescriptorSets(set_info);
+	}
+	{
+		std::vector<std::unique_ptr<vk::DescriptorImageInfo>> desc_img;
+		std::vector<vk::WriteDescriptorSet> write_sets;
+
+		for (size_t i = 0; i < models.textures.size(); i++) {
+			const ModelCache::Texture& tex_data = models.textures[i];
+			ImageAllocation& tex = textures[i];
+
+			vk::Extent3D extent(tex_data.width, tex_data.height, 1);
+			vk::ImageCreateInfo tex_create;
+			tex_create.setImageType(vk::ImageType::e2D)
+				.setFormat(vk::Format::eR8G8B8A8Srgb)
+				.setExtent(extent)
+				.setMipLevels(1)
+				.setArrayLayers(1)
+				.setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
+			vma::AllocationCreateInfo tex_alloc({}, vma::MemoryUsage::eAutoPreferDevice);
+			vk::ImageViewCreateInfo tex_view;
+			tex_view.setViewType(vk::ImageViewType::e2D)
+				.setFormat(vk::Format::eR8G8B8A8Srgb)
+				.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor)
+				.setLevelCount(1)
+				.setLayerCount(1);
+			tex.init(device, tex_create, tex_alloc, tex_view);
+
+			staging.prepare(tex_data.rgba, tex, extent);
+
+			desc_img.push_back(std::make_unique<vk::DescriptorImageInfo>(
+				vk::DescriptorImageInfo{{}, tex, vk::ImageLayout::eShaderReadOnlyOptimal}));
+			write_sets.push_back(vk::WriteDescriptorSet{material_sets[i], 0, 0});
+			write_sets.back()
+				.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+				.setImageInfo(*desc_img.back());
+		}
+
+		device->updateDescriptorSets(write_sets, {});
 	}
 
 	cmd.begin();

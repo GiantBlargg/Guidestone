@@ -12,9 +12,15 @@ class Assets {
 	const Device& device;
 	Command cmd;
 
+	vk::DescriptorPool desc_pool;
+
   public:
 	BufferAllocation vertex;
 	std::vector<ImageAllocation> textures;
+
+	vk::Sampler sampler;
+	vk::DescriptorSetLayout material_layout;
+	std::vector<vk::DescriptorSet> material_sets;
 
 	Assets(const Device&);
 	~Assets();
