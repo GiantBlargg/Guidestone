@@ -7,6 +7,7 @@
 #include "render.hpp"
 #include "storage.hpp"
 #include "swapchain.hpp"
+#include "uniform.hpp"
 #include <vulkan/vulkan.hpp>
 
 namespace Vulkan {
@@ -19,9 +20,11 @@ class Render final : public ::Render {
 	f32 aspect = 0;
 
 	Storage storage;
+	UniformBuffer uniform_buffer;
 
 	Command cmd;
 
+	vk::PipelineLayout pipeline_layout;
 	vk::Pipeline default_pipeline;
 
 	ModelCache models;

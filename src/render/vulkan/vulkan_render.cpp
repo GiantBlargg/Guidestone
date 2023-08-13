@@ -8,9 +8,13 @@ namespace Vulkan {
 template <class T> inline size_t vectorSize(std::vector<T> v) { return v.size() * sizeof(T); }
 
 Render::Render(Context::Create c)
-	: context(c), device(context), framebuffer(context.surface, device), storage(device),
+	: context(c), device(context), framebuffer(context.surface, device), storage(device), uniform_buffer(device),
 	  cmd(device, device.graphics_queue) {
 
+	{
+		vk::PipelineLayoutCreateInfo layout_info({}, uniform_buffer.uniform_layout);
+		pipeline_layout = device->createPipelineLayout(layout_info);
+	}
 	{
 		vk::ShaderModule vertex_shader =
 			device->createShaderModule(vk::ShaderModuleCreateInfo({}, Shaders::default_vert));
@@ -61,7 +65,7 @@ Render::Render(Context::Create c)
 			.setPDepthStencilState(&depth)
 			.setPColorBlendState(&blend)
 			.setPDynamicState(&dynamic)
-			.setLayout(storage.pipeline_layout);
+			.setLayout(pipeline_layout);
 
 		pipeline_create.get<vk::PipelineRenderingCreateInfo>()
 			.setColorAttachmentFormats(device.surface_format.format)
@@ -78,6 +82,7 @@ Render::~Render() {
 	device->waitIdle();
 
 	device->destroy(default_pipeline);
+	device->destroy(pipeline_layout);
 }
 
 void Render::renderFrame(FrameInfo frame_info) {
@@ -89,7 +94,9 @@ void Render::renderFrame(FrameInfo frame_info) {
 		mat4 proj = mat4::perspective(camera.fov, aspect, camera.near_clip);
 		mat4 view = mat4::lookAt(camera.eye, camera.target, camera.up);
 		Uniform uniform{proj * view};
-		storage.update_uniform(uniform, cmd.get_index());
+		auto bind_target = uniform_buffer.update_uniform(uniform, cmd.get_index());
+		cmd->bindDescriptorSets(
+			vk::PipelineBindPoint::eGraphics, pipeline_layout, 0, bind_target.first, bind_target.second);
 	}
 
 	framebuffer.start_rendering(cmd);

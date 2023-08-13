@@ -42,10 +42,6 @@ struct BufferAllocation {
 	void destroy(const Device&);
 };
 
-struct Uniform {
-	mat4 camera; // Projection * View
-};
-
 struct Storage {
   private:
 	const Device& device;
@@ -53,15 +49,6 @@ struct Storage {
   public:
 	BufferAllocation vertex_buffer;
 	void update_vertex_buffer(const void* src, size_t n);
-
-	vk::PipelineLayout pipeline_layout;
-
-	vk::DescriptorPool uniform_pool;
-	vk::DescriptorSetLayout uniform_layout;
-	vk::DescriptorSet uniform_set;
-	BufferAllocation uniform_buffer;
-	vk::DeviceSize uniform_stride;
-	void update_uniform(const Uniform&, size_t index);
 
 	Storage(const Device&);
 	~Storage();
