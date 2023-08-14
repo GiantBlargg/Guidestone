@@ -150,7 +150,7 @@ void Assets::set_model_cache(const ModelCache& models) {
 			const ModelCache::Texture& tex_data = models.textures[i];
 			ImageAllocation& tex = textures[i];
 
-			vk::Extent3D extent(tex_data.width, tex_data.height, 1);
+			vk::Extent3D extent(tex_data.size.x, tex_data.size.y, 1);
 			vk::ImageCreateInfo tex_create;
 			tex_create.setImageType(vk::ImageType::e2D)
 				.setFormat(vk::Format::eR8G8B8A8Srgb)

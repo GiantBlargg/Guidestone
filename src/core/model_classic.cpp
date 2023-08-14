@@ -2,7 +2,9 @@
 #include "model.hpp"
 
 #include "fs.hpp"
+#include <algorithm>
 #include <array>
+#include <cassert>
 #include <fstream>
 #include <set>
 
@@ -124,50 +126,36 @@ const size_t PaletteSize = 256;
 
 } // namespace Classic
 
+struct Surface {
+	bool emissive;
+	bool double_sided;
+	ModelCache::index node;
+	size_t texture;
+	std::vector<ModelCache::Vertex> vertices;
+
+	bool cam_merge(const Surface& s) {
+		return emissive == s.emissive && double_sided == s.double_sided && node == s.node && texture == s.texture;
+	};
+	void merge(const Surface& s) {
+		assert(cam_merge(s));
+		vertices.insert(vertices.end(), s.vertices.begin(), s.vertices.end());
+	}
+};
+
 u32 ModelCache::loadClassicModel(const FS::Path& path) {
 
 	models.emplace_back();
+	Model& model = models.back();
 
 	FS::Reader geo = FS::loadClassicFile(path);
 
 	auto header = geo.get<Classic::Geo::Header>();
 
+	// Read this before we change the cursor
 	auto polygon_objects = geo.getVector<Classic::Geo::PolygonObject>(header.nPolygonObjects);
 
 	geo.cursor = header.oLocalMaterial;
 	auto geo_materials = geo.getVector<Classic::Geo::MaterialEntry>(header.nPublicMaterials + header.nLocalMaterials);
-
-	for (auto& po : polygon_objects) {
-		auto poly_entries = geo.getVector<Classic::Geo::PolyEntry>(po.nPolygons, po.pPolygonList);
-
-		u16 last_mat = std::numeric_limits<u16>::max();
-		for (auto& pe : poly_entries) {
-			if (pe.iMaterial != last_mat) {
-				last_mat = pe.iMaterial;
-
-				// TODO: This only works for the first model loaded.
-				models.back().meshes.push_back(Model::Mesh{vertices.size(), 0, pe.iMaterial, 0});
-			}
-
-			Classic::Geo::VertexEntry v;
-			Classic::Geo::VertexEntry n;
-			u32 iNormal = pe.iFaceNormal;
-			bool smooth = geo_materials[pe.iMaterial].flags & Classic::Geo::MaterialEntry::Flags::Smoothing;
-
-			for (int i = 0; i < 3; i++) {
-				geo.cursor = po.pVertexList + pe.iVertex[i] * sizeof(Classic::Geo::VertexEntry);
-				v = geo.get<Classic::Geo::VertexEntry>();
-				if (smooth) {
-					iNormal = v.iVertexNormal;
-				}
-				geo.cursor = po.pNormalList + iNormal * sizeof(Classic::Geo::VertexEntry);
-				n = geo.get<Classic::Geo::VertexEntry>();
-				vertices.push_back(Vertex{.pos = v.pos, .normal = n.pos, .uv = pe.uv[i]});
-			}
-
-			models.back().meshes.back().num_vertices = vertices.size() - models.back().meshes.back().first_vertex;
-		}
-	}
 
 	std::set<std::string> texture_offsets_set;
 	for (auto& mat : geo_materials) {
@@ -177,15 +165,59 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 	}
 	std::vector<std::string> texture_offsets(texture_offsets_set.cbegin(), texture_offsets_set.cend());
 
+	std::vector<size_t> texture_lookup;
+
 	for (auto& mat : geo_materials) {
 		materials.emplace_back();
 		if (mat.texture) {
-			materials.back().texture = std::ranges::find(texture_offsets, geo.get<std::string>(mat.texture)) -
-				texture_offsets.begin() + textures.size();
+			texture_lookup.push_back(
+				std::ranges::find(texture_offsets, geo.get<std::string>(mat.texture)) - texture_offsets.begin());
 		} else {
 			Log::error("Non textured surfaces not yet supported.");
+			texture_lookup.push_back(std::numeric_limits<size_t>::max());
 		}
 	}
+
+	std::vector<Surface> triangles;
+
+	for (auto& po : polygon_objects) {
+		model.nodes.push_back({.transform = po.localMatrix});
+		Model::Node& node = model.nodes.back();
+		if (po.pMother) {
+			node.parent_node = (po.pMother - sizeof(Classic::Geo::Header)) / sizeof(Classic::Geo::PolygonObject);
+		}
+
+		auto poly_entries = geo.getVector<Classic::Geo::PolyEntry>(po.nPolygons, po.pPolygonList);
+
+		for (auto& pe : poly_entries) {
+			Classic::Geo::VertexEntry v;
+			Classic::Geo::VertexEntry n;
+			u32 iNormal = pe.iFaceNormal;
+			bool smooth = geo_materials[pe.iMaterial].flags & Classic::Geo::MaterialEntry::Flags::Smoothing;
+
+			triangles.push_back({
+				.emissive = static_cast<bool>(
+					geo_materials[pe.iMaterial].flags & Classic::Geo::MaterialEntry::Flags::SelfIllum),
+				.double_sided = static_cast<bool>(
+					geo_materials[pe.iMaterial].flags & Classic::Geo::MaterialEntry::Flags::DoubleSided),
+				.node = model.nodes.size() - 1,
+				.texture = texture_lookup[pe.iMaterial],
+			});
+
+			for (int i = 0; i < 3; i++) {
+				geo.cursor = po.pVertexList + pe.iVertex[i] * sizeof(Classic::Geo::VertexEntry);
+				v = geo.get<Classic::Geo::VertexEntry>();
+				if (smooth) {
+					iNormal = v.iVertexNormal;
+				}
+				geo.cursor = po.pNormalList + iNormal * sizeof(Classic::Geo::VertexEntry);
+				n = geo.get<Classic::Geo::VertexEntry>();
+				triangles.back().vertices.push_back({.pos = v.pos, .normal = n.pos, .uv = pe.uv[i]});
+			}
+		}
+	}
+
+	std::vector<Texture> local_textures;
 
 	for (auto& t : texture_offsets) {
 		std::string texture_name = t + ".lif";
@@ -195,13 +227,12 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 		auto texture_header = lif.get<Classic::Lif::Header>();
 
 		Texture tex{
-			.width = texture_header.width,
-			.height = texture_header.height,
+			.size = {texture_header.width, texture_header.height},
 			.has_alpha = !!(texture_header.flags & Classic::Lif::Header::Flags::Alpha)};
-		tex.rgba.reserve(tex.width * tex.height);
+		tex.rgba.reserve(tex.size.x * tex.size.y);
 
 		if (texture_header.flags & Classic::Lif::Header::Flags::Paletted) {
-			auto indicies = lif.getVector<u8>(tex.width * tex.height, texture_header.data);
+			auto indicies = lif.getVector<u8>(tex.size.x * tex.size.y, texture_header.data);
 			auto palette = lif.getVector<u8vec4>(Classic::Lif::PaletteSize, texture_header.palette);
 			for (auto i : indicies) {
 				tex.rgba.push_back(palette[i]);
@@ -210,8 +241,47 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 			Log::error("Non paletted images not yet supported.");
 		}
 
-		textures.push_back(tex);
+		local_textures.push_back(tex);
 	}
+
+	std::ranges::stable_sort(triangles, [](const Surface& a, const Surface& b) {
+		if (a.node != b.node)
+			return a.node < b.node;
+		if (a.texture != b.texture)
+			return a.texture < b.texture;
+		if (a.emissive != b.emissive)
+			return a.emissive < b.emissive;
+		// if (a.double_sided != b.double_sided)
+		return a.double_sided < b.double_sided;
+	});
+
+	std::vector<Surface> surfaces;
+	for (auto& t : triangles) {
+		if (surfaces.empty() || !surfaces.back().cam_merge(t)) {
+			surfaces.push_back(t);
+		} else {
+			surfaces.back().merge(t);
+		}
+	}
+
+	for (auto& s : surfaces) {
+		Material mat{.texture = s.texture + textures.size()};
+		index mat_index = materials.size();
+		for (index i = 0; i < materials.size(); i++) {
+			auto& mat_ = materials[i];
+			if (mat == mat_) {
+				mat_index = i;
+			}
+		}
+		if (mat_index == materials.size()) {
+			materials.push_back(mat);
+		}
+
+		model.meshes.push_back(Model::Mesh{vertices.size(), s.vertices.size(), mat_index, s.node});
+		vertices.insert(vertices.end(), s.vertices.begin(), s.vertices.end());
+	}
+
+	textures.insert(textures.end(), local_textures.begin(), local_textures.end());
 
 	return models.size() - 1;
 }

@@ -20,17 +20,21 @@ template <typename T = f32> struct Vector2 {
 
 	friend inline Vector2 operator-(const Vector2& v) { return {-v.x, -v.y}; }
 
+	friend inline bool operator==(const Vector2& a, const Vector2& b) { return a.x == b.x && a.y == b.y; }
+
 	friend inline Vector2 operator*(const Vector2& v, T s) { return {v.x * s, v.y * s}; }
 	friend inline Vector2 operator/(const Vector2& v, T s) { return {v.x / s, v.y / s}; }
 	friend inline Vector2 operator+(const Vector2& a, const Vector2& b) { return {a.x + b.x, a.y + b.y}; }
 	friend inline Vector2 operator-(const Vector2& a, const Vector2& b) { return {a.x - b.x, a.y - b.y}; }
+	friend inline Vector2 operator*(const Vector2& a, const Vector2& b) { return {a.x * b.x, a.y * b.y}; }
+	friend inline Vector2 operator/(const Vector2& a, const Vector2& b) { return {a.x / b.x, a.y / b.y}; }
 
 	friend inline Vector2 operator*=(Vector2& v, T s) { return {v.x *= s, v.y *= s}; }
 	friend inline Vector2 operator/=(Vector2& v, T s) { return {v.x /= s, v.y /= s}; }
 	friend inline Vector2 operator+=(Vector2& a, const Vector2& b) { return {a.x += b.x, a.y += b.y}; }
 	friend inline Vector2 operator-=(Vector2& a, const Vector2& b) { return {a.x -= b.x, a.y -= b.y}; }
 
-	friend inline T operator*(const Vector2& a, const Vector2 b) { return a.x * b.x + a.y * b.y; }
+	friend inline T dot(const Vector2& a, const Vector2 b) { return a.x * b.x + a.y * b.y; }
 
 	friend inline T lengthSquared(const Vector2& v) { return v.x * v.x + v.y * v.y; }
 
@@ -49,18 +53,21 @@ template <typename T = f32> struct Vector3 {
 
 	friend inline Vector3 operator-(const Vector3& v) { return {-v.x, -v.y, -v.z}; }
 
+	friend inline bool operator==(const Vector3& a, const Vector3& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
+
 	friend inline Vector3 operator*(const Vector3& v, T s) { return {v.x * s, v.y * s, v.z * s}; }
 	friend inline Vector3 operator/(const Vector3& v, T s) { return {v.x / s, v.y / s, v.z / s}; }
 	friend inline Vector3 operator+(const Vector3& a, const Vector3& b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
 	friend inline Vector3 operator-(const Vector3& a, const Vector3& b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
+	friend inline Vector3 operator*(const Vector3& a, const Vector3& b) { return {a.x * b.x, a.y * b.y, a.z * b.z}; }
+	friend inline Vector3 operator/(const Vector3& a, const Vector3& b) { return {a.x / b.x, a.y / b.y, a.z / b.z}; }
 
 	friend inline Vector3 operator*=(Vector3& v, T s) { return {v.x *= s, v.y *= s, v.z *= s}; }
 	friend inline Vector3 operator/=(Vector3& v, T s) { return {v.x /= s, v.y /= s, v.z /= s}; }
 	friend inline Vector3 operator+=(Vector3& a, const Vector3& b) { return {a.x += b.x, a.y += b.y, a.z += b.z}; }
 	friend inline Vector3 operator-=(Vector3& a, const Vector3& b) { return {a.x -= b.x, a.y -= b.y, a.z -= b.z}; }
 
-	// Dot product
-	friend inline T operator*(const Vector3& a, const Vector3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+	friend inline T dot(const Vector3& a, const Vector3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 	friend inline Vector3 cross(const Vector3& a, const Vector3& b) {
 		return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 	}
@@ -83,6 +90,10 @@ template <typename T = f32> struct Vector4 {
 
 	friend inline Vector4 operator-(const Vector4& v) { return {-v.x, -v.y, -v.z, -v.w}; }
 
+	friend inline bool operator==(const Vector4& a, const Vector4& b) {
+		return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
+	}
+
 	friend inline Vector4 operator*(const Vector4& v, T s) { return {v.x * s, v.y * s, v.z * s, v.w * s}; }
 	friend inline Vector4 operator/(const Vector4& v, T s) { return {v.x / s, v.y / s, v.z / s, v.w / s}; }
 	friend inline Vector4 operator+(const Vector4& a, const Vector4& b) {
@@ -90,6 +101,12 @@ template <typename T = f32> struct Vector4 {
 	}
 	friend inline Vector4 operator-(const Vector4& a, const Vector4& b) {
 		return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w};
+	}
+	friend inline Vector4 operator*(const Vector4& a, const Vector4& b) {
+		return {a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w};
+	}
+	friend inline Vector4 operator/(const Vector4& a, const Vector4& b) {
+		return {a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w};
 	}
 
 	friend inline Vector4 operator*=(Vector4& v, T s) { return {v.x *= s, v.y *= s, v.z *= s, v.w *= s}; }
@@ -101,9 +118,7 @@ template <typename T = f32> struct Vector4 {
 		return {a.x -= b.x, a.y -= b.y, a.z -= b.z, a.w -= b.w};
 	}
 
-	friend inline T operator*(const Vector4& a, const Vector4 b) {
-		return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-	}
+	friend inline T dot(const Vector4& a, const Vector4 b) { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; }
 
 	friend inline T lengthSquared(const Vector4& v) { return v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w; }
 
@@ -142,6 +157,10 @@ template <typename T = f32> struct Matrix3 {
 			{0, 1, 0},
 			{0, 0, 1},
 		};
+	}
+
+	friend inline bool operator==(const Matrix3& a, const Matrix3& b) {
+		return a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
 	}
 
 	friend inline Vector operator*(const Matrix3& m, const Vector& v) { return m[0] * v.x + m[1] * v.y + m[2] * v.z; }
@@ -195,13 +214,17 @@ template <typename T = f32> struct Matrix4 {
 	Vector& operator[](int c) { return columns[c]; }
 	const Vector& operator[](int c) const { return columns[c]; }
 
-	constexpr static Matrix4 identity() {
+	constexpr static Matrix4<T> identity() {
 		return {
 			{1, 0, 0, 0},
 			{0, 1, 0, 0},
 			{0, 0, 1, 0},
 			{0, 0, 0, 1},
 		};
+	}
+
+	friend inline bool operator==(const Matrix4& a, const Matrix4& b) {
+		return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3];
 	}
 
 	friend inline Vector operator*(const Matrix4& m, const Vector& v) {
@@ -234,7 +257,7 @@ template <typename T = f32> struct Matrix4 {
 			{side.x, up.x, backwards.x, 0},
 			{side.y, up.y, backwards.y, 0},
 			{side.z, up.z, backwards.z, 0},
-			{-eye * side, -eye * up, -eye * backwards, 1},
+			{dot(-eye, side), dot(-eye, up), dot(-eye, backwards), 1},
 		};
 	}
 

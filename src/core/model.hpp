@@ -10,6 +10,7 @@
 class ModelCache {
   public:
 	using index = u64;
+	static constexpr index index_null = std::numeric_limits<index>::max();
 
 	struct Vertex {
 		vec3 pos;
@@ -19,20 +20,22 @@ class ModelCache {
 	std::vector<Vertex> vertices;
 
 	struct Texture {
-		u32 width, height;
+		uvec2 size;
 		bool has_alpha = false;
 		std::vector<u8vec4> rgba = {};
 	};
 	std::vector<Texture> textures;
 
 	struct Material {
-		index texture = std::numeric_limits<index>::max();
+		index texture = index_null;
+
+		bool operator==(const Material&) const = default;
 	};
 	std::vector<Material> materials;
 
 	struct Model {
 		struct Node {
-			index parent_node = std::numeric_limits<index>::max();
+			index parent_node = index_null;
 			mat4 transform = mat4::identity();
 		};
 		std::vector<Node> nodes;
