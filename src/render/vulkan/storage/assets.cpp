@@ -68,12 +68,7 @@ struct Staging {
 				.setLayerCount(1);
 		}
 
-		cmd.pipelineBarrier2(vk::DependencyInfo{
-			{},
-			{},
-			{},
-			pre_image_barriers,
-		});
+		cmd.pipelineBarrier2(vk::DependencyInfo{{}, {}, {}, pre_image_barriers});
 
 		vk::BufferCreateInfo staging_create({}, staging_size, vk::BufferUsageFlagBits::eTransferSrc);
 		vma::AllocationCreateInfo staging_alloc(
@@ -97,12 +92,7 @@ struct Staging {
 			vk::BufferImageCopy region(image.offset, 0, 0, sub, {0, 0, 0}, image.extent);
 			cmd.copyBufferToImage(staging_buffer, image.dst, vk::ImageLayout::eTransferDstOptimal, region);
 		}
-		cmd.pipelineBarrier2(vk::DependencyInfo{
-			{},
-			{},
-			{},
-			post_image_barriers,
-		});
+		cmd.pipelineBarrier2(vk::DependencyInfo{{}, {}, {}, post_image_barriers});
 	}
 };
 

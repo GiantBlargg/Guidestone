@@ -4,6 +4,7 @@
 #include "fs.hpp"
 #include <array>
 #include <fstream>
+#include <set>
 
 namespace Classic {
 
@@ -168,34 +169,48 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 		}
 	}
 
+	std::set<std::string> texture_offsets_set;
+	for (auto& mat : geo_materials) {
+		if (mat.texture) {
+			texture_offsets_set.insert(geo.get<std::string>(mat.texture));
+		}
+	}
+	std::vector<std::string> texture_offsets(texture_offsets_set.cbegin(), texture_offsets_set.cend());
+
 	for (auto& mat : geo_materials) {
 		materials.emplace_back();
 		if (mat.texture) {
-			std::string texture_name = geo.get<std::string>(mat.texture) + ".lif";
-			FS::Path texture_path = (path.parent_path() / texture_name);
-
-			FS::Reader lif = FS::loadClassicFile(texture_path);
-			auto texture_header = lif.get<Classic::Lif::Header>();
-
-			Texture tex{
-				.width = texture_header.width,
-				.height = texture_header.height,
-				.has_alpha = !!(texture_header.flags & Classic::Lif::Header::Flags::Alpha)};
-			tex.rgba.reserve(tex.width * tex.height);
-
-			if (texture_header.flags & Classic::Lif::Header::Flags::Paletted) {
-				auto indicies = lif.getVector<u8>(tex.width * tex.height, texture_header.data);
-				auto palette = lif.getVector<u8vec4>(Classic::Lif::PaletteSize, texture_header.palette);
-				for (auto i : indicies) {
-					tex.rgba.push_back(palette[i]);
-				}
-			} else {
-				Log::error("Non paletted images not yet supported.");
-			}
-
-			materials.back().texture = textures.size();
-			textures.push_back(tex);
+			materials.back().texture = std::ranges::find(texture_offsets, geo.get<std::string>(mat.texture)) -
+				texture_offsets.begin() + textures.size();
+		} else {
+			Log::error("Non textured surfaces not yet supported.");
 		}
+	}
+
+	for (auto& t : texture_offsets) {
+		std::string texture_name = t + ".lif";
+		FS::Path texture_path = (path.parent_path() / texture_name);
+
+		FS::Reader lif = FS::loadClassicFile(texture_path);
+		auto texture_header = lif.get<Classic::Lif::Header>();
+
+		Texture tex{
+			.width = texture_header.width,
+			.height = texture_header.height,
+			.has_alpha = !!(texture_header.flags & Classic::Lif::Header::Flags::Alpha)};
+		tex.rgba.reserve(tex.width * tex.height);
+
+		if (texture_header.flags & Classic::Lif::Header::Flags::Paletted) {
+			auto indicies = lif.getVector<u8>(tex.width * tex.height, texture_header.data);
+			auto palette = lif.getVector<u8vec4>(Classic::Lif::PaletteSize, texture_header.palette);
+			for (auto i : indicies) {
+				tex.rgba.push_back(palette[i]);
+			}
+		} else {
+			Log::error("Non paletted images not yet supported.");
+		}
+
+		textures.push_back(tex);
 	}
 
 	return models.size() - 1;
