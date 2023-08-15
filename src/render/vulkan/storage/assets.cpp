@@ -98,8 +98,16 @@ struct Staging {
 
 Assets::Assets(const Device& d) : device(d), cmd(device, device.graphics_queue) {
 	{
+		constexpr auto address_mode = vk::SamplerAddressMode::eClampToEdge;
+
 		vk::SamplerCreateInfo sampler_info;
-		sampler_info.setMaxLod(vk::LodClampNone);
+		sampler_info.setMaxLod(vk::LodClampNone)
+			.setMinFilter(vk::Filter::eLinear)
+			.setMagFilter(vk::Filter::eLinear)
+			.setAddressModeU(address_mode)
+			.setAddressModeV(address_mode)
+			.setAddressModeW(address_mode)
+			.setBorderColor(vk::BorderColor::eIntOpaqueWhite);
 		sampler = device->createSampler(sampler_info);
 	}
 	{

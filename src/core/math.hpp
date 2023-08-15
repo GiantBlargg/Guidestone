@@ -18,6 +18,8 @@ template <typename T = f32> struct Vector2 {
 
 	T& operator[](int axis) { return ((T*)this)[axis]; }
 
+	template <typename R> explicit operator Vector2<R>() { return {static_cast<R>(x), static_cast<R>(y)}; }
+
 	friend inline Vector2 operator-(const Vector2& v) { return {-v.x, -v.y}; }
 
 	friend inline bool operator==(const Vector2& a, const Vector2& b) { return a.x == b.x && a.y == b.y; }
@@ -43,6 +45,7 @@ template <typename T = f32> struct Vector2 {
 
 using vec2 = Vector2<f32>;
 using uvec2 = Vector2<u32>;
+using ivec2 = Vector2<i32>;
 
 template <typename T = f32> struct Vector3 {
 	static_assert(std::is_arithmetic_v<T>);
@@ -50,6 +53,10 @@ template <typename T = f32> struct Vector3 {
 	T x = 0, y = 0, z = 0;
 
 	T& operator[](int axis) { return ((T*)this)[axis]; }
+
+	template <typename R> explicit operator Vector3<R>() {
+		return {static_cast<R>(x), static_cast<R>(y), static_cast<R>(z)};
+	}
 
 	friend inline Vector3 operator-(const Vector3& v) { return {-v.x, -v.y, -v.z}; }
 
@@ -87,6 +94,10 @@ template <typename T = f32> struct Vector4 {
 	T x = 0, y = 0, z = 0, w = 0;
 
 	T& operator[](int axis) { return ((T*)this)[axis]; }
+
+	template <typename R> explicit operator Vector4<R>() {
+		return {static_cast<R>(x), static_cast<R>(y), static_cast<R>(z), static_cast<R>(w)};
+	}
 
 	friend inline Vector4 operator-(const Vector4& v) { return {-v.x, -v.y, -v.z, -v.w}; }
 

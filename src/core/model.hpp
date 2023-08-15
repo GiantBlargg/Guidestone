@@ -24,7 +24,7 @@ class ModelCache {
 		bool has_alpha = false;
 		std::vector<u8vec4> rgba = {};
 	};
-	std::vector<Texture> textures;
+	std::vector<Texture> textures = {{{1, 1}, false, {{255, 255, 255, 255}}}};
 
 	struct Material {
 		index texture = index_null;

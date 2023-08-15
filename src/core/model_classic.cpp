@@ -154,6 +154,194 @@ void patch(const FS::Path& path, std::vector<Surface>& triangles) {
 	}
 }
 
+template <typename I, typename N> inline auto posmod(I i, N n) { return (i % n + n) % n; }
+inline auto posmod(f32 i, f32 n) { return fmod((fmod(i, n) + n), n); }
+inline auto posmod(f64 i, f64 n) { return fmod((fmod(i, n) + n), n); }
+
+// Some textures have been packed together, however this doesn't play well with texture filtering
+// Try to separate them back into the individual textures
+void split_textures(std::vector<ModelCache::Texture>& textures, std::vector<Surface>& surfaces) {
+
+	// Repeated copies are not considered to be the same area
+	// TODO: Fix this
+
+	struct Region {
+		size_t texture;
+		ivec2 min, max;
+		uvec2 size;
+		vec2 offset, scale;
+	};
+
+	std::vector<uvec2> texture_size;
+
+	texture_size.reserve(textures.size());
+	for (auto& t : textures) {
+		texture_size.push_back(t.size);
+	}
+
+	std::vector<Region> regions;
+	regions.reserve(surfaces.size());
+
+	constexpr size_t merged_null = std::numeric_limits<size_t>::max();
+	std::vector<size_t> merged(surfaces.size(), merged_null);
+
+	std::vector<size_t> map;
+	map.reserve(surfaces.size());
+
+	for (auto& s : surfaces) {
+		map.push_back(regions.size());
+
+		vec2 min = s.vertices[0].uv, max = s.vertices[0].uv;
+
+		for (auto& v : s.vertices) {
+			min.x = std::min(min.x, v.uv.x);
+			min.y = std::min(min.y, v.uv.y);
+			max.x = std::max(max.x, v.uv.x);
+			max.y = std::max(max.y, v.uv.y);
+		}
+
+		uvec2 tex_size = texture_size[s.texture];
+		regions.push_back({
+			.texture = s.texture,
+			.min =
+				{
+					static_cast<int>(std::floor(min.x * tex_size.x)),
+					static_cast<int>(std::floor(min.y * tex_size.y)),
+				},
+			.max =
+				{
+					static_cast<int>(std::ceil(max.x * tex_size.x)),
+					static_cast<int>(std::ceil(max.y * tex_size.y)),
+				},
+		});
+	}
+
+	std::ranges::sort(
+		map,
+		[](const Region& a, const Region& b) {
+			if (a.texture != b.texture)
+				return a.texture < b.texture;
+
+			if (a.min.x != b.min.x)
+				return a.min.x < b.min.x;
+			if (a.min.y != b.min.y)
+				return a.min.y < b.min.y;
+
+			if (a.max.x != b.max.x)
+				return a.min.x < b.min.x;
+
+			return a.max.y < b.max.y;
+		},
+		[&regions](size_t i) { return regions[i]; });
+
+	// Merge overlapping regions
+	bool done = false;
+	while (!done) {
+		done = true;
+
+		for (size_t i = 0; i < map.size(); i++) {
+			Region& root = regions[map[i]];
+			if (merged[map[i]] != merged_null) // This region has already been merged
+				continue;
+
+			for (size_t j = i + 1; j < map.size(); j++) {
+				Region& merge = regions[map[j]];
+
+				// Since the map is sorted we can back out early
+				if (root.texture < merge.texture)
+					break;
+				if (root.max.x <= merge.min.x)
+					break;
+
+				if (merged[map[j]] != merged_null) // This region has already been merged
+					continue;
+
+				if (root.max.y <= merge.min.y)
+					continue;
+				if (root.min.y >= merge.max.y)
+					continue;
+
+				// Found a region to merge
+				merged[map[j]] = map[i];
+				// min.x shouldn't need to change
+				assert(root.min.x <= merge.min.x);
+				root.min.y = std::min(root.min.y, merge.min.y);
+				root.max = {std::max(root.max.x, merge.max.x), std::max(root.max.y, merge.max.y)};
+				done = false;
+			}
+		}
+	}
+
+	{
+		std::vector<Region> new_regions;
+
+		for (size_t i : map) {
+			Region& region = regions[i];
+			size_t& m = merged[i];
+			if (m == merged_null) {
+				m = new_regions.size();
+				new_regions.push_back(region);
+			} else {
+				m = merged[m];
+			}
+		}
+
+		regions = std::move(new_regions);
+	}
+
+	for (Region& region : regions) {
+		region.size = static_cast<uvec2>(region.max - region.min);
+		uvec2 tex_size = texture_size[region.texture];
+		region.offset = {
+			static_cast<f32>(region.min.x) / static_cast<f32>(tex_size.x),
+			static_cast<f32>(region.min.y) / static_cast<f32>(tex_size.y),
+		};
+		region.scale = {
+			static_cast<f32>(tex_size.x) / static_cast<f32>(region.size.x),
+			static_cast<f32>(tex_size.y) / static_cast<f32>(region.size.y),
+		};
+	}
+
+	// Calculated regions, now split them up
+
+	for (size_t i = 0; i < surfaces.size(); i++) {
+		Surface& surface = surfaces[i];
+		size_t region_index = merged[i];
+		Region& region = regions[region_index];
+
+		surface.texture = region_index;
+
+		for (auto& v : surface.vertices) {
+			v.uv = (v.uv - region.offset) * region.scale;
+		}
+	}
+	{
+		std::vector<ModelCache::Texture> new_textures;
+		new_textures.reserve((regions.size()));
+
+		for (const auto& region : regions) {
+			const ModelCache::Texture& source_texture = textures[region.texture];
+			if (source_texture.size == region.size) {
+				new_textures.push_back(source_texture);
+			} else {
+				ModelCache::Texture tex{.size = region.size, .has_alpha = textures[region.texture].has_alpha};
+				tex.rgba.reserve(region.size.x * region.size.y);
+				for (u32 y = 0; y < region.size.y; y++) {
+					for (u32 x = 0; x < region.size.x; x++) {
+						size_t source_pixel_addr =
+							(posmod(y + region.min.y, source_texture.size.y) * source_texture.size.x) +
+							posmod(x + region.min.x, source_texture.size.y);
+
+						tex.rgba.push_back(source_texture.rgba[source_pixel_addr]);
+					}
+				}
+				new_textures.push_back(tex);
+			}
+		}
+		textures = std::move(new_textures);
+	}
+}
+
 u32 ModelCache::loadClassicModel(const FS::Path& path) {
 
 	models.emplace_back();
@@ -169,24 +357,22 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 	geo.cursor = header.oLocalMaterial;
 	auto geo_materials = geo.getVector<Classic::Geo::MaterialEntry>(header.nPublicMaterials + header.nLocalMaterials);
 
-	std::set<std::string> texture_offsets_set;
-	for (auto& mat : geo_materials) {
-		if (mat.texture) {
-			texture_offsets_set.insert(geo.get<std::string>(mat.texture));
-		}
-	}
-	std::vector<std::string> texture_offsets(texture_offsets_set.cbegin(), texture_offsets_set.cend());
-
+	std::vector<std::string> texture_names;
 	std::vector<size_t> texture_lookup;
 
 	for (auto& mat : geo_materials) {
-		materials.emplace_back();
 		if (mat.texture) {
-			texture_lookup.push_back(
-				std::ranges::find(texture_offsets, geo.get<std::string>(mat.texture)) - texture_offsets.begin());
+			std::string tex_name = geo.get<std::string>(mat.texture);
+			auto it = std::ranges::find(texture_names, tex_name);
+			if (it == texture_names.end()) {
+				texture_lookup.push_back(texture_names.size());
+				texture_names.push_back(tex_name);
+			} else {
+				texture_lookup.push_back(it - texture_names.begin());
+			}
 		} else {
-			Log::error("Non textured surfaces not yet supported.");
-			texture_lookup.push_back(std::numeric_limits<size_t>::max());
+			// Default texture
+			texture_lookup.push_back(-textures.size());
 		}
 	}
 
@@ -224,7 +410,13 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 				}
 				geo.cursor = po.pNormalList + iNormal * sizeof(Classic::Geo::VertexEntry);
 				n = geo.get<Classic::Geo::VertexEntry>();
-				triangles.back().vertices.push_back({.pos = v.pos, .normal = n.pos, .uv = pe.uv[i]});
+				vec2 uv = pe.uv[i];
+				if (uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) {
+					Log::warn(
+						"Texture \"" + texture_names[triangles.back().texture] + "\"(" +
+						std::to_string(triangles.back().texture) + ") will be read out of range");
+				}
+				triangles.back().vertices.push_back({.pos = v.pos, .normal = n.pos, .uv = uv});
 			}
 		}
 	}
@@ -233,7 +425,7 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 
 	std::vector<Texture> local_textures;
 
-	for (auto& t : texture_offsets) {
+	for (auto& t : texture_names) {
 		std::string texture_name = t + ".lif";
 		FS::Path texture_path = (path.parent_path() / texture_name);
 
@@ -257,6 +449,8 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 
 		local_textures.push_back(tex);
 	}
+
+	split_textures(local_textures, triangles);
 
 	std::ranges::stable_sort(triangles, [](const Surface& a, const Surface& b) {
 		if (a.node != b.node)
