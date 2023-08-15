@@ -142,6 +142,18 @@ struct Surface {
 	}
 };
 
+void patch(const FS::Path& path, std::vector<Surface>& triangles) {
+	if (path == "r1/resourcecollector/rl0/lod0/resourcecollector.peo") {
+		auto& uv1 = triangles[177].vertices[2].uv.x;
+		auto& uv2 = triangles[179].vertices[2].uv.x;
+		if (uv1 == uv2 && uv1 == 0.497250378f) {
+			uv1 = uv2 = 0.25f;
+		} else {
+			Log::warn("Failed to apply patch");
+		}
+	}
+}
+
 u32 ModelCache::loadClassicModel(const FS::Path& path) {
 
 	models.emplace_back();
@@ -216,6 +228,8 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 			}
 		}
 	}
+
+	patch(path, triangles);
 
 	std::vector<Texture> local_textures;
 
