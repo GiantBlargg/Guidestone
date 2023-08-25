@@ -2,6 +2,7 @@
 
 #include "context.hpp"
 #include "types.hpp"
+#include <optional>
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan.hpp>
 
@@ -19,8 +20,8 @@ struct Device {
 
 	vk::Device device;
 	Queue graphics_queue;
-	Queue present_queue;
-	Queue transfer_queue;
+	std::optional<Queue> present_queue;
+	std::optional<Queue> transfer_queue;
 
 	vma::Allocator allocator;
 

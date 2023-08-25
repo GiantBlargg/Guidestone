@@ -13,13 +13,13 @@ struct Config {
 		f32 priority = 1.0;
 	};
 	Queue graphics;
-	Queue transfer;
-	Queue present;
+	std::optional<Queue> transfer;
+	std::optional<Queue> present;
 	vk::SurfaceFormatKHR surface_format;
 	vk::PresentModeKHR present_mode;
 	vk::Format depth_format;
-	bool memory_budget;
-	bool memory_priority;
+	bool memory_budget = false;
+	bool memory_priority = false;
 };
 
 std::vector<Config> getConfigs(const Context& context) {
@@ -118,12 +118,9 @@ std::vector<Config> getConfigs(const Context& context) {
 					continue;
 				if (score > transfer_score) {
 					transfer_score = score;
-					config.transfer.family = i;
-					config.transfer.index = index;
+					config.transfer = Config::Queue{.family = i, .index = index};
 				}
 			}
-			if (transfer_score < 0)
-				continue;
 
 			int present_score = -1;
 			for (u32 i = 0; i < queue_families.size(); i++) {
@@ -140,7 +137,7 @@ std::vector<Config> getConfigs(const Context& context) {
 					index++;
 					score--;
 				}
-				if (i == config.transfer.family) {
+				if (config.transfer.has_value() && i == config.transfer->family) {
 					index++;
 					score--;
 				}
@@ -148,13 +145,9 @@ std::vector<Config> getConfigs(const Context& context) {
 					continue;
 				if (score > present_score) {
 					present_score = score;
-					config.present.family = i;
-					config.present.index = index;
-					config.present.priority = 0.5;
+					config.present = Config::Queue{.family = i, .index = index, .priority = 0.5};
 				}
 			}
-			if (present_score < 0)
-				continue;
 		}
 
 		{ // Pick Present Mode
@@ -190,7 +183,11 @@ Device::Device(const Context& context) {
 	{
 		std::vector<vk::DeviceQueueCreateInfo> queue_create;
 		std::vector<std::vector<f32>> priorities;
-		std::vector<Config::Queue> queue_configs = {config.graphics, config.transfer, config.present};
+		std::vector<Config::Queue> queue_configs = {config.graphics};
+		if (config.transfer.has_value())
+			queue_configs.push_back(config.transfer.value());
+		if (config.present.has_value())
+			queue_configs.push_back(config.present.value());
 		for (auto q : queue_configs) {
 			if (priorities.size() <= q.family) {
 				priorities.resize(q.family + 1);
@@ -231,10 +228,19 @@ Device::Device(const Context& context) {
 
 	graphics_queue.family = config.graphics.family;
 	graphics_queue.queue = device.getQueue(config.graphics.family, config.graphics.index);
-	transfer_queue.family = config.transfer.family;
-	transfer_queue.queue = device.getQueue(config.transfer.family, config.transfer.index);
-	present_queue.family = config.present.family;
-	present_queue.queue = device.getQueue(config.present.family, config.present.index);
+
+	if (config.transfer.has_value()) {
+		transfer_queue = Queue{
+			.queue = device.getQueue(config.transfer->family, config.transfer->index),
+			.family = config.transfer->family,
+		};
+	}
+	if (config.present.has_value()) {
+		present_queue = Queue{
+			.queue = device.getQueue(config.present->family, config.present->index),
+			.family = config.present->family,
+		};
+	}
 
 	{
 		vma::AllocatorCreateInfo alloc_info({}, config.physical_device, device);
