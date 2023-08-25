@@ -15,6 +15,10 @@ Reader::~Reader() {
 
 Reader& Reader::operator>>(u8& d) { return read(&d, 1); }
 
+static_assert(
+	std::endian::native == std::endian::little || std::endian::native == std::endian::big,
+	"Mixed Endian not supported!");
+
 Reader& Reader::operator>>(u16& d) {
 	if (endian == std::endian::native) {
 		return read((u8*)&d, 2);

@@ -158,6 +158,8 @@ template <typename I, typename N> inline auto posmod(I i, N n) { return (i % n +
 inline auto posmod(f32 i, f32 n) { return fmod((fmod(i, n) + n), n); }
 inline auto posmod(f64 i, f64 n) { return fmod((fmod(i, n) + n), n); }
 
+template <typename N> bool is_po2(N n) { return (n & (n - 1)) == 0; }
+
 // Some textures have been packed together, however this doesn't play well with texture filtering
 // Try to separate them back into the individual textures
 void split_textures(std::vector<ModelCache::Texture>& textures, std::vector<Surface>& surfaces) {
@@ -292,6 +294,11 @@ void split_textures(std::vector<ModelCache::Texture>& textures, std::vector<Surf
 	for (Region& region : regions) {
 		region.size = static_cast<uvec2>(region.max - region.min);
 		uvec2 tex_size = texture_size[region.texture];
+
+		if (!is_po2(region.size.x) || !is_po2(region.size.y)) {
+			Log::warn("Region is not a power of 2!");
+		}
+
 		region.offset = {
 			static_cast<f32>(region.min.x) / static_cast<f32>(tex_size.x),
 			static_cast<f32>(region.min.y) / static_cast<f32>(tex_size.y),
@@ -450,7 +457,7 @@ u32 ModelCache::loadClassicModel(const FS::Path& path) {
 		local_textures.push_back(tex);
 	}
 
-	split_textures(local_textures, triangles);
+	// split_textures(local_textures, triangles);
 
 	std::ranges::stable_sort(triangles, [](const Surface& a, const Surface& b) {
 		if (a.node != b.node)
