@@ -56,7 +56,7 @@ std::vector<Config> getConfigs(const Context& context) {
 			auto features13 = features.get<vk::PhysicalDeviceVulkan13Features>();
 			if (!features13.dynamicRendering || !features13.synchronization2)
 				continue;
-			if (config.memory_budget)
+			if (config.memory_priority)
 				config.memory_priority = features.get<vk::PhysicalDeviceMemoryPriorityFeaturesEXT>().memoryPriority;
 		}
 
