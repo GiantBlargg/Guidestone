@@ -1,0 +1,14 @@
+[package]
+name = "guidestone_winit"
+version.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+guidestone_core = { path = "../guidestone_core" }
+guidestone_vulkan = { path = "../guidestone_vulkan" }
+ash-window = { git = "https://github.com/ash-rs/ash.git", branch = "update" }
+winit = { git = "https://github.com/rust-windowing/winit.git" }
+env_logger = "0.10.0"
+log = "0.4"

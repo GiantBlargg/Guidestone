@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = [
+	"crates/guidestone_core",
+	"crates/guidestone_vulkan",
+	"crates/guidestone_winit",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
