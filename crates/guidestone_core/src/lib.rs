@@ -1,7 +1,13 @@
-use math::{UVec2, Vec3};
+use std::path::Path;
 
+use fs::ClassicFS;
+use math::{UVec2, Vec3};
+use model::{Model, ModelCache};
+
+mod fs;
 pub mod input;
 pub mod math;
+mod model;
 
 #[must_use]
 pub struct PlatformConfig {
@@ -47,10 +53,26 @@ impl Engine {
 	}
 
 	pub fn start(_: EngineInit, render: Box<dyn Renderer>) -> Self {
-		Self {
+		let mut engine = Self {
 			input: Default::default(),
 			render,
-		}
+		};
+		engine.start_game();
+		engine
+	}
+
+	pub fn start_game(&mut self) {
+		let classic_fs = ClassicFS::new();
+
+		let model = Model::load_classic_model(
+			&classic_fs,
+			Path::new("r1/resourcecollector/rl0/lod0/resourcecollector.peo"),
+		)
+		.unwrap();
+
+		let mut model_cache = ModelCache::default();
+
+		model_cache.push(model);
 	}
 
 	// Returns true when platform should shutdown.

@@ -2,8 +2,9 @@
 resolver = "2"
 members = [
 	"crates/guidestone_core",
-	"crates/guidestone_vulkan",
+	"crates/guidestone_proc_macro",
 	"crates/guidestone_winit",
+	"crates/render_wgpu",
 ]
 
 [workspace.package]

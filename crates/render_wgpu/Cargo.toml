@@ -1,5 +1,5 @@
 [package]
-name = "guidestone_vulkan"
+name = "render_wgpu"
 version.workspace = true
 edition.workspace = true
 
@@ -7,5 +7,5 @@ edition.workspace = true
 
 [dependencies]
 guidestone_core = { path = "../guidestone_core" }
-ash = { git = "https://github.com/ash-rs/ash.git", branch = "update" }
-log = "0.4"
+raw-window-handle = "0.5.2"
+wgpu = "0.17.0"

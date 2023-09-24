@@ -7,8 +7,8 @@ edition.workspace = true
 
 [dependencies]
 guidestone_core = { path = "../guidestone_core" }
-guidestone_vulkan = { path = "../guidestone_vulkan" }
-ash-window = { git = "https://github.com/ash-rs/ash.git", branch = "update" }
+render_wgpu = { path = "../render_wgpu" }
 winit = { git = "https://github.com/rust-windowing/winit.git" }
 env_logger = "0.10.0"
 log = "0.4"
+futures-lite = "1.13.0"

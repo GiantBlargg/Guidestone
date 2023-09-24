@@ -4,8 +4,12 @@ use std::{
 	ops::{Add, Deref, DerefMut, Div, Index, IndexMut, Mul, Neg, Sub},
 };
 
+use crate::fs::FromRead;
+
+use super::num_traits::Float;
+
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, FromRead)]
 pub struct Vector<T, const N: usize>([T; N]);
 
 // Unsized Vector Functions
@@ -96,12 +100,9 @@ impl<T: Copy + Add<Output = T>, const N: usize> Add<Vector<T, N>> for Vector<T, 
 	}
 }
 
-impl<T: Copy + Add<Output = T>, const N: usize> Sum<Vector<T, N>> for Vector<T, N>
-where
-	Vector<T, N>: Default,
-{
+impl<T: Copy + Add<Output = T>, const N: usize> Sum<Vector<T, N>> for Vector<T, N> {
 	fn sum<I: Iterator<Item = Vector<T, N>>>(iter: I) -> Self {
-		iter.fold(Default::default(), |acc, v| acc + v)
+		iter.reduce(|acc, v| acc + v).unwrap()
 	}
 }
 
@@ -276,5 +277,3 @@ mod alias {
 }
 
 pub use alias::*;
-
-use super::num_traits::Float;

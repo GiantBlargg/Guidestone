@@ -92,7 +92,9 @@ fn main() {
 		.unwrap();
 	let mut mouse_grabber = MouseGrabber::default();
 
-	let render = vulkan_render(&event_loop, &window);
+	let render = Box::new(futures_lite::future::block_on(render_wgpu::Render::new(
+		&window,
+	)));
 
 	let mut engine = Engine::start(engine_init, render);
 
@@ -162,24 +164,4 @@ fn main() {
 			}
 		})
 		.unwrap();
-}
-
-fn vulkan_render(event_loop: &EventLoop<()>, window: &Window) -> Box<guidestone_vulkan::Render> {
-	use ash_window::*;
-	use guidestone_vulkan::{Context, Render};
-	use winit::window::raw_window_handle::*;
-	let display_handle = event_loop.raw_display_handle();
-	let extensions = enumerate_required_extensions(display_handle).unwrap();
-	let context = Context::load(extensions.to_vec()).unwrap();
-	let surface = unsafe {
-		create_surface(
-			&context.entry,
-			&context.instance,
-			display_handle,
-			window.raw_window_handle(),
-			None,
-		)
-	}
-	.unwrap();
-	Box::new(Render::new(context, surface))
 }
