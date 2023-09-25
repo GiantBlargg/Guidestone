@@ -21,6 +21,7 @@ pub trait Float:
 	fn sin(self) -> Self;
 	fn cos(self) -> Self;
 	fn tan(self) -> Self;
+	fn sin_cos(self) -> (Self, Self);
 
 	fn is_nan(self) -> bool;
 	fn is_infinite(self) -> bool;
@@ -48,6 +49,7 @@ macro_rules! impl_float {
 			fn sin(self) -> Self;
 			fn cos(self) -> Self;
 			fn tan(self) -> Self;
+			fn sin_cos(self) -> (Self, Self);
 
 			fn is_nan(self) -> bool;
 			fn is_infinite(self) -> bool;

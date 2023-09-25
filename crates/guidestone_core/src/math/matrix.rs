@@ -77,6 +77,36 @@ where
 	}
 }
 
+impl<T: Float> Matrix<T, 3, 3> {
+	pub fn rotate_x(angle: T) -> Self {
+		let (sin, cos) = angle.sin_cos();
+		[
+			[1.into(), 0.into(), 0.into()],
+			[0.into(), cos, sin],
+			[0.into(), -sin, cos],
+		]
+		.into()
+	}
+	pub fn rotate_y(angle: T) -> Self {
+		let (sin, cos) = angle.sin_cos();
+		[
+			[cos, 0.into(), -sin],
+			[0.into(), 1.into(), 0.into()],
+			[sin, 0.into(), cos],
+		]
+		.into()
+	}
+	pub fn rotate_z(angle: T) -> Self {
+		let (sin, cos) = angle.sin_cos();
+		[
+			[cos, sin, 0.into()],
+			[-sin, cos, 0.into()],
+			[0.into(), 0.into(), 1.into()],
+		]
+		.into()
+	}
+}
+
 impl<T: Float> Matrix<T, 4, 4> {
 	pub fn look_at(eye: Vector<T, 3>, center: Vector<T, 3>, up: Vector<T, 3>) -> Self {
 		let backwards = (eye - center).normalized();
@@ -103,7 +133,7 @@ impl<T: Float> Matrix<T, 4, 4> {
 
 		let mut m = Self::default();
 		m[0][0] = -cot / aspect;
-		m[1][1] = cot;
+		m[1][1] = -cot;
 		m[2][3] = (-1).into();
 		m[3][2] = z_near;
 

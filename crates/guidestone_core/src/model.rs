@@ -5,38 +5,39 @@ use crate::{
 
 mod classic;
 
-struct Vertex {
-	pos: Vec3,
-	normal: Vec3,
-	uv: Vec2,
+#[repr(C)]
+pub struct Vertex {
+	pub pos: Vec3,
+	pub normal: Vec3,
+	pub uv: Vec2,
 }
 
-struct Texture {
-	size: UVec2,
-	has_alpha: bool,
-	rgba: Vec<U8Vec4>,
+pub struct Texture {
+	pub size: UVec2,
+	pub has_alpha: bool,
+	pub rgba: Vec<U8Vec4>,
 }
 
 #[derive(PartialEq, Eq)]
-struct Material {
-	texture: u64,
+pub struct Material {
+	pub texture: u32,
 }
 
-struct Node {
-	parent: Option<u64>,
-	transform: Mat4,
+pub struct Node {
+	pub parent: Option<u32>,
+	pub transform: Mat4,
 }
 
-struct Mesh {
-	first_vertex: u64,
-	num_vertices: u64,
-	material: u64,
-	node: u64,
+pub struct Mesh {
+	pub first_vertex: u32,
+	pub num_vertices: u32,
+	pub material: u32,
+	pub node: u32,
 }
 
-struct CachedModel {
-	nodes: Vec<Node>,
-	meshes: Vec<Mesh>,
+pub struct CachedModel {
+	pub nodes: Vec<Node>,
+	pub meshes: Vec<Mesh>,
 }
 
 pub struct Model {
@@ -54,25 +55,25 @@ impl Model {
 }
 
 pub struct ModelCache {
-	vertices: Vec<Vertex>,
-	textures: Vec<Texture>,
-	materials: Vec<Material>,
-	models: Vec<CachedModel>,
+	pub vertices: Vec<Vertex>,
+	pub textures: Vec<Texture>,
+	pub materials: Vec<Material>,
+	pub models: Vec<CachedModel>,
 }
 
 impl ModelCache {
-	pub fn push(&mut self, mut model: Model) -> u64 {
+	pub fn push(&mut self, mut model: Model) -> u32 {
 		for mat in &mut model.materials {
-			if mat.texture >= model.textures.len() as u64 {
+			if mat.texture >= model.textures.len() as u32 {
 				mat.texture = 0;
 			} else {
-				mat.texture += self.textures.len() as u64;
+				mat.texture += self.textures.len() as u32;
 			}
 		}
 
 		for mesh in &mut model.meshes {
-			mesh.first_vertex += self.vertices.len() as u64;
-			mesh.material += self.materials.len() as u64;
+			mesh.first_vertex += self.vertices.len() as u32;
+			mesh.material += self.materials.len() as u32;
 		}
 
 		self.vertices.append(&mut model.vertices);
@@ -84,7 +85,7 @@ impl ModelCache {
 			meshes: model.meshes,
 		});
 
-		self.models.len() as u64 - 1
+		self.models.len() as u32 - 1
 	}
 }
 

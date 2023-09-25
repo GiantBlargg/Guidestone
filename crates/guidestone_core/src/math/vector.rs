@@ -9,7 +9,7 @@ use crate::fs::FromRead;
 use super::num_traits::Float;
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, FromRead)]
+#[derive(Clone, Copy, PartialEq, FromRead, Debug)]
 pub struct Vector<T, const N: usize>([T; N]);
 
 // Unsized Vector Functions

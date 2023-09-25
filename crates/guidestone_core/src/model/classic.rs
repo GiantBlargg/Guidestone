@@ -8,7 +8,7 @@ use std::{
 use log::warn;
 
 use crate::{
-	fs::{ClassicFS, FromRead, GetFromRead},
+	fs::{ClassicFS, GetFromRead},
 	math::{U8Vec4, UVec2, Vector},
 };
 
@@ -138,15 +138,15 @@ mod lif {
 struct Surface {
 	emissive: bool,
 	double_sided: bool,
-	node: u64,
-	texture: u64,
+	node: u32,
+	texture: u32,
 	vertices: Vec<Vertex>,
 }
 
 impl Surface {
 	fn can_merge(&self, other: &Surface) -> bool {
 		self.emissive == other.emissive
-			&& self.double_sided == other.emissive
+			&& self.double_sided == other.double_sided
 			&& self.node == other.node
 			&& self.texture == other.texture
 	}
@@ -159,7 +159,7 @@ impl Surface {
 
 #[derive(Default)]
 struct Patch {
-	triangle: u64,
+	triangle: u32,
 	vertex: u8,
 	pos: Vector<Option<(f32, f32)>, 3>,
 	normal: Vector<Option<(f32, f32)>, 3>,
@@ -240,13 +240,13 @@ pub fn load_model(fs: &ClassicFS, path: &Path) -> io::Result<Model> {
 			let tex_name: CString = geo.get_at(mat.texture)?;
 			let tex_id = texture_names.iter().position(|t| *t == tex_name);
 			if let Some(id) = tex_id {
-				texture_lookup.push(id as u64);
+				texture_lookup.push(id as u32);
 			} else {
-				texture_lookup.push(texture_names.len() as u64);
+				texture_lookup.push(texture_names.len() as u32);
 				texture_names.push(tex_name);
 			}
 		} else {
-			texture_lookup.push(u64::MAX);
+			texture_lookup.push(u32::MAX);
 		}
 	}
 
@@ -256,11 +256,11 @@ pub fn load_model(fs: &ClassicFS, path: &Path) -> io::Result<Model> {
 	for po in polygon_objects {
 		let parent = if po.pMother != 0 {
 			// (po.pMother - sizeof(Geo::Header)) / sizeof(Geo::PolygonObject)
-			Some(((po.pMother - 68) / 112).into())
+			Some((po.pMother - 68) / 112)
 		} else {
 			None
 		};
-		let node = nodes.len() as u64;
+		let node = nodes.len() as u32;
 		nodes.push(Node {
 			parent,
 			transform: po.localMatrix,
@@ -372,10 +372,10 @@ pub fn load_model(fs: &ClassicFS, path: &Path) -> io::Result<Model> {
 			let id = materials.len();
 			materials.push(mat);
 			id
-		}) as u64;
+		}) as u32;
 		meshes.push(super::Mesh {
-			first_vertex: vertices.len() as u64,
-			num_vertices: s.vertices.len() as u64,
+			first_vertex: vertices.len() as u32,
+			num_vertices: s.vertices.len() as u32,
 			material: mat_id,
 			node: s.node,
 		});

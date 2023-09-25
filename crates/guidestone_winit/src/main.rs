@@ -13,6 +13,7 @@ use winit::{
 #[derive(Default)]
 struct MouseGrabber {
 	last_pos: PhysicalPosition<f64>,
+	is_grabbed: bool,
 	manual_lock: bool,
 }
 
@@ -34,6 +35,8 @@ impl MouseGrabber {
 			self.manual_lock = false;
 			window.set_cursor_grab(CursorGrabMode::None).unwrap();
 		}
+		self.is_grabbed = grab;
+		window.set_cursor_visible(!grab);
 	}
 }
 
@@ -75,7 +78,10 @@ fn log_init() {
 fn main() {
 	log_init();
 
-	// std::env::remove_var("WAYLAND_DISPLAY");
+	if std::env::var("FORCE_X11").is_ok() {
+		std::env::remove_var("WAYLAND_DISPLAY");
+	}
+
 	let event_loop = EventLoop::new().unwrap();
 
 	let (platform_config, engine_init) = Engine::init();
@@ -114,10 +120,14 @@ fn main() {
 						}
 						WindowEvent::CursorMoved { position: pos, .. } => {
 							mouse_grabber.cursor_moved(&window, pos);
-							Some(input::Event::MousePosition(Some(Vec2::new(
-								pos.x as f32,
-								pos.y as f32,
-							))))
+							if mouse_grabber.is_grabbed {
+								None
+							} else {
+								Some(input::Event::MousePosition(Some(Vec2::new(
+									pos.x as f32,
+									pos.y as f32,
+								))))
+							}
 						}
 						WindowEvent::CursorLeft { device_id: _ } => {
 							Some(input::Event::MousePosition(None))
@@ -146,7 +156,12 @@ fn main() {
 				Event::DeviceEvent {
 					device_id: _,
 					event: DeviceEvent::MouseMotion { delta: (x, y) },
-				} => send_event = Some(input::Event::MouseRelative(Vec2::new(x as f32, y as f32))),
+				} => {
+					if mouse_grabber.is_grabbed {
+						send_event =
+							Some(input::Event::MouseRelative(Vec2::new(x as f32, y as f32)))
+					}
+				}
 				Event::AboutToWait => {
 					if engine.update() {
 						elwt.exit();

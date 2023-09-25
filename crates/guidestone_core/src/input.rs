@@ -48,4 +48,10 @@ impl State {
 		};
 		None
 	}
+
+	pub fn reset(&mut self) {
+		self.resize = Default::default();
+		self.mouse_relative = Default::default();
+		self.scroll = Default::default();
+	}
 }

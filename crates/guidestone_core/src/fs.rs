@@ -135,13 +135,15 @@ pub struct ClassicFS {
 }
 
 impl ClassicFS {
-	pub fn new() -> Self {
+	pub fn load<P: AsRef<Path>>(&self, path: P) -> io::Result<impl GetFromRead> {
+		File::open(self.hwc_data.join(path))
+	}
+}
+
+impl Default for ClassicFS {
+	fn default() -> Self {
 		Self {
 			hwc_data: std::env::var_os("HWC_DATA").unwrap().into(),
 		}
-	}
-
-	pub fn load<P: AsRef<Path>>(&self, path: P) -> io::Result<impl GetFromRead> {
-		File::open(self.hwc_data.join(path))
 	}
 }
