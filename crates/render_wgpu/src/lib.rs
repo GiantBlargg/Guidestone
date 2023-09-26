@@ -8,7 +8,7 @@ use guidestone_core::{
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use wgpu::{
 	util::DeviceExt, BindGroup, Buffer, BufferUsages, Device, PresentMode, Queue, RenderPipeline,
-	ShaderStages, Surface, TextureFormat, TextureUsages, TextureViewDescriptor,
+	ShaderStages, Surface, Texture, TextureFormat, TextureUsages,
 };
 
 struct Assets {
@@ -30,6 +30,7 @@ pub struct Render {
 	surface_size: UVec2,
 	surface_format: TextureFormat,
 	present_mode: PresentMode,
+	depth_buffer: Texture,
 
 	assets: Option<Assets>,
 	default_pipeline: RenderPipeline,
@@ -154,12 +155,21 @@ impl Render {
 				polygon_mode: wgpu::PolygonMode::Fill,
 				..Default::default()
 			};
+
+			let depth_stencil = wgpu::DepthStencilState {
+				format: TextureFormat::Depth24Plus,
+				depth_write_enabled: true,
+				depth_compare: wgpu::CompareFunction::Greater,
+				stencil: Default::default(),
+				bias: Default::default(),
+			};
+
 			device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
 				label: None,
 				layout: Some(&pipeline_layout),
 				vertex,
 				primitive,
-				depth_stencil: None,
+				depth_stencil: Some(depth_stencil),
 				multisample: Default::default(),
 				fragment: Some(fragment),
 				multiview: None,
@@ -181,6 +191,22 @@ impl Render {
 			}],
 		});
 
+		// Place holder depth buffer, will get replaced before it's used
+		let depth_buffer = device.create_texture(&wgpu::TextureDescriptor {
+			label: None,
+			size: wgpu::Extent3d {
+				width: 1,
+				height: 1,
+				depth_or_array_layers: 1,
+			},
+			mip_level_count: 1,
+			sample_count: 1,
+			dimension: wgpu::TextureDimension::D2,
+			format: TextureFormat::Depth24Plus,
+			usage: TextureUsages::RENDER_ATTACHMENT,
+			view_formats: &[],
+		});
+
 		Self {
 			surface,
 			device,
@@ -188,6 +214,7 @@ impl Render {
 			surface_size: UVec2::default(),
 			surface_format,
 			present_mode,
+			depth_buffer,
 			assets: None,
 			default_pipeline,
 			uniform_buffer,
@@ -212,6 +239,20 @@ impl Renderer for Render {
 						view_formats: Vec::new(),
 					},
 				);
+				self.depth_buffer = self.device.create_texture(&wgpu::TextureDescriptor {
+					label: None,
+					size: wgpu::Extent3d {
+						width: size.x,
+						height: size.y,
+						depth_or_array_layers: 1,
+					},
+					mip_level_count: 1,
+					sample_count: 1,
+					dimension: wgpu::TextureDimension::D2,
+					format: TextureFormat::Depth24Plus,
+					usage: TextureUsages::RENDER_ATTACHMENT,
+					view_formats: &[],
+				});
 				self.surface_size = size;
 			}
 		}
@@ -232,20 +273,27 @@ impl Renderer for Render {
 
 		let surface_texture = self.surface.get_current_texture().unwrap();
 		let texture = &surface_texture.texture;
-		let view = texture.create_view(&TextureViewDescriptor {
-			..Default::default()
-		});
+		let surface_view = texture.create_view(&Default::default());
+		let depth_view = self.depth_buffer.create_view(&Default::default());
 		{
+			use wgpu::{LoadOp, Operations};
 			let mut render_pass = command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 				color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-					view: &view,
+					view: &surface_view,
 					resolve_target: None,
-					ops: wgpu::Operations {
+					ops: Operations {
 						load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
 						store: true,
 					},
 				})],
-				depth_stencil_attachment: None,
+				depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+					view: &depth_view,
+					depth_ops: Some(Operations {
+						load: LoadOp::Clear(0.0),
+						store: false,
+					}),
+					stencil_ops: None,
+				}),
 				..Default::default()
 			});
 
