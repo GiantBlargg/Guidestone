@@ -2,19 +2,21 @@ use std::{mem::size_of, num::NonZeroU64, slice};
 
 use guidestone_core::{
 	math::{Mat4, UVec2},
-	model::{ModelCache, Vertex},
+	model::{CachedModel, ModelCache, Vertex},
 	FrameInfo, Renderer,
 };
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use wgpu::{
-	util::DeviceExt, BindGroup, Buffer, BufferUsages, Device, PresentMode, Queue, RenderPipeline,
-	ShaderStages, Surface, Texture, TextureFormat, TextureUsages,
+	util::DeviceExt, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer,
+	BufferUsages, Device, Extent3d, PresentMode, Queue, RenderPipeline, ShaderStages, Surface,
+	Texture, TextureDescriptor, TextureFormat, TextureUsages,
 };
 
 struct Assets {
 	vertex_buffer: Buffer,
+	materials: Vec<BindGroup>,
 
-	model_cache: ModelCache,
+	models: Vec<CachedModel>,
 }
 
 #[repr(C)]
@@ -37,6 +39,8 @@ pub struct Render {
 
 	uniform_buffer: Buffer,
 	uniform_bind: BindGroup,
+
+	material_bind_layout: BindGroupLayout,
 }
 
 impl Render {
@@ -82,22 +86,46 @@ impl Render {
 			})
 			.unwrap();
 
-		let camera_bind = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+		use wgpu::{BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType};
+
+		let global_bind = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
 			label: None,
-			entries: &[wgpu::BindGroupLayoutEntry {
+			entries: &[
+				BindGroupLayoutEntry {
+					binding: 0,
+					visibility: ShaderStages::VERTEX,
+					ty: BindingType::Buffer {
+						ty: wgpu::BufferBindingType::Uniform,
+						has_dynamic_offset: false,
+						min_binding_size: NonZeroU64::new(64),
+					},
+					count: None,
+				},
+				BindGroupLayoutEntry {
+					binding: 1,
+					visibility: ShaderStages::FRAGMENT,
+					ty: BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+					count: None,
+				},
+			],
+		});
+
+		let material_bind_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+			label: None,
+			entries: &[BindGroupLayoutEntry {
 				binding: 0,
-				visibility: ShaderStages::VERTEX,
-				ty: wgpu::BindingType::Buffer {
-					ty: wgpu::BufferBindingType::Uniform,
-					has_dynamic_offset: false,
-					min_binding_size: NonZeroU64::new(64),
+				visibility: ShaderStages::FRAGMENT,
+				ty: BindingType::Texture {
+					sample_type: wgpu::TextureSampleType::Float { filterable: true },
+					view_dimension: wgpu::TextureViewDimension::D2,
+					multisampled: false,
 				},
 				count: None,
 			}],
 		});
 		let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 			label: None,
-			bind_group_layouts: &[&camera_bind],
+			bind_group_layouts: &[&global_bind, &material_bind_layout],
 			push_constant_ranges: &[],
 		});
 
@@ -182,19 +210,33 @@ impl Render {
 			usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
 			mapped_at_creation: false,
 		});
-		let uniform_bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+		let address_mode = wgpu::AddressMode::Repeat;
+		let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+			address_mode_u: address_mode,
+			address_mode_v: address_mode,
+			mag_filter: wgpu::FilterMode::Nearest,
+			min_filter: wgpu::FilterMode::Nearest,
+			..Default::default()
+		});
+		let uniform_bind = device.create_bind_group(&BindGroupDescriptor {
 			label: None,
-			layout: &camera_bind,
-			entries: &[wgpu::BindGroupEntry {
-				binding: 0,
-				resource: uniform_buffer.as_entire_binding(),
-			}],
+			layout: &global_bind,
+			entries: &[
+				BindGroupEntry {
+					binding: 0,
+					resource: uniform_buffer.as_entire_binding(),
+				},
+				BindGroupEntry {
+					binding: 1,
+					resource: wgpu::BindingResource::Sampler(&sampler),
+				},
+			],
 		});
 
 		// Place holder depth buffer, will get replaced before it's used
-		let depth_buffer = device.create_texture(&wgpu::TextureDescriptor {
+		let depth_buffer = device.create_texture(&TextureDescriptor {
 			label: None,
-			size: wgpu::Extent3d {
+			size: Extent3d {
 				width: 1,
 				height: 1,
 				depth_or_array_layers: 1,
@@ -219,6 +261,7 @@ impl Render {
 			default_pipeline,
 			uniform_buffer,
 			uniform_bind,
+			material_bind_layout,
 		}
 	}
 }
@@ -239,9 +282,9 @@ impl Renderer for Render {
 						view_formats: Vec::new(),
 					},
 				);
-				self.depth_buffer = self.device.create_texture(&wgpu::TextureDescriptor {
+				self.depth_buffer = self.device.create_texture(&TextureDescriptor {
 					label: None,
-					size: wgpu::Extent3d {
+					size: Extent3d {
 						width: size.x,
 						height: size.y,
 						depth_or_array_layers: 1,
@@ -304,7 +347,8 @@ impl Renderer for Render {
 
 				render_pass.set_pipeline(&self.default_pipeline);
 
-				for mesh in &assets.model_cache.models.first().unwrap().meshes {
+				for mesh in &assets.models.first().unwrap().meshes {
+					render_pass.set_bind_group(1, &assets.materials[mesh.material as usize], &[]);
 					render_pass.draw(
 						mesh.first_vertex..(mesh.first_vertex + mesh.num_vertices),
 						0..1,
@@ -328,9 +372,53 @@ impl Renderer for Render {
 				usage: BufferUsages::VERTEX,
 			});
 
+		let textures: Vec<Texture> = model_cache
+			.textures
+			.into_iter()
+			.map(|texture| {
+				let texture_bytes = unsafe { vec_to_bytes(&texture.rgba) };
+				self.device.create_texture_with_data(
+					&self.queue,
+					&TextureDescriptor {
+						label: None,
+						size: Extent3d {
+							width: texture.size.x,
+							height: texture.size.y,
+							depth_or_array_layers: 1,
+						},
+						mip_level_count: 1,
+						sample_count: 1,
+						dimension: wgpu::TextureDimension::D2,
+						format: TextureFormat::Rgba8UnormSrgb,
+						usage: TextureUsages::TEXTURE_BINDING,
+						view_formats: &[],
+					},
+					texture_bytes,
+				)
+			})
+			.collect();
+
+		let materials = model_cache
+			.materials
+			.into_iter()
+			.map(|material| {
+				self.device.create_bind_group(&BindGroupDescriptor {
+					label: None,
+					layout: &self.material_bind_layout,
+					entries: &[BindGroupEntry {
+						binding: 0,
+						resource: wgpu::BindingResource::TextureView(
+							&textures[material.texture as usize].create_view(&Default::default()),
+						),
+					}],
+				})
+			})
+			.collect();
+
 		self.assets = Some(Assets {
 			vertex_buffer,
-			model_cache,
+			materials,
+			models: model_cache.models,
 		});
 	}
 }
