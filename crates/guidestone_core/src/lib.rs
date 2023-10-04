@@ -16,7 +16,6 @@ pub struct PlatformConfig {
 	pub initial_res: UVec2,
 	pub window_title: String,
 }
-pub struct EngineInit {}
 
 pub struct FrameInfo {
 	pub resize: Option<UVec2>,

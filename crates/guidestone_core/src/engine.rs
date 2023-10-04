@@ -1,13 +1,16 @@
 use std::path::Path;
 
+use hw_import::HWImporter;
+
 use crate::{
 	camera::OrbitCamera,
 	fs::ClassicFS,
 	input,
 	math::UVec2,
 	model::{Model, ModelCache},
-	EngineInit, FrameInfo, PlatformConfig, Renderer,
+	FrameInfo, PlatformConfig, Renderer,
 };
+pub struct EngineInit {}
 
 pub struct Engine {
 	input: input::State,
@@ -17,6 +20,7 @@ pub struct Engine {
 
 impl Engine {
 	pub fn init() -> (PlatformConfig, EngineInit) {
+		HWImporter::load();
 		// TODO: Load from config
 		let min_res: UVec2 = UVec2::new(640, 480);
 		(

@@ -1,12 +1,10 @@
 [package]
-name = "guidestone_core"
+name = "hw_import"
 version.workspace = true
 edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-guidestone_proc_macro = { path = "../guidestone_proc_macro" }
-hw_import = { path = "../hw_import" }
+binrw = "0.12.0"
 bitflags = "2.4"
-log = "0.4.20"
