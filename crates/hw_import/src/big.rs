@@ -102,9 +102,9 @@ impl<R: io::Read + io::Seek> BigFile<R> {
 	}
 }
 
-pub struct BigChain(Vec<BigFile<File>>);
+pub struct HwFs(Vec<BigFile<File>>);
 
-impl BigChain {
+impl HwFs {
 	pub fn load() -> Self {
 		Self(
 			std::env::var("HW_BIG")

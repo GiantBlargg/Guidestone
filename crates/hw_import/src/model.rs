@@ -1,10 +1,13 @@
 use std::{
+	collections::{BTreeMap, HashMap},
 	io::{self, SeekFrom},
 	num::NonZeroU32,
 };
 
-use binrw::{binread, file_ptr::NonZeroFilePtr32, BinRead, NullString};
+use binrw::{binread, file_ptr::NonZeroFilePtr32, BinRead, FilePtr32, NullString};
 use bitflags::bitflags;
+
+use crate::big::HwFs;
 
 #[derive(BinRead)]
 enum GeoID {
@@ -19,7 +22,7 @@ enum GeoID {
 #[br(little)]
 struct Geo {
 	identifier: GeoID, // File identifier.
-	#[br(temp, assert(version == 0x402u32))]
+	#[br(temp, assert(version == 0x402))]
 	version: u32, // File version.
 
 	#[br(try, parse_with = NonZeroFilePtr32::parse, pad_after = 8)]
@@ -136,6 +139,98 @@ struct PolygonObject {
 	local_matrix: [f32; 16],
 }
 
-pub fn make_model<R: io::Read + io::Seek>(mut read: R) {
-	let geo = Geo::read(&mut read);
+#[binread]
+#[br(little, magic = b"Event13\0")]
+struct LL {
+	#[br(temp, assert(version == 0x104))]
+	version: u32, //version number
+	#[br(temp, pad_after = 12)]
+	nElements: u32, //number of textures listed
+	// stringLength: u32,  //length of all strings
+	// sharingLength: u32, //length of all offsets
+	// totalLength: u32,   //total length of file, this header not included
+	#[br(count = nElements, args{inner: 28 + (32 * nElements)})]
+	lifs: Vec<LLElement>,
+}
+
+#[binread]
+#[br(import_raw(strings_offset: u32))]
+struct LLElement {
+	#[br(args{offset: strings_offset.into()}, parse_with = FilePtr32::parse)]
+	textureName: NullString, //name of texture, an offset from start of string block
+	size: [u32; 2],      //size of texture
+	flags: TextureFlags, //flags for things like alpha and luminance map
+	// imageCRC: u32,       //crc of the unquantized image
+	// nShared: i32,        //number of images which share this one
+	// sharedTo: u32,       //list of indices of images which share this one
+	#[br(pad_before = 12, map(|x| if x == u32::MAX {None} else {Some(x)}))]
+	sharedFrom: Option<u32>, //image this one is shared from, or -1 if none
+}
+
+#[derive(BinRead, PartialEq, Eq, Clone, Copy)]
+struct TextureFlags(u32);
+
+bitflags! {
+	impl TextureFlags: u32 {
+		const Paletted = 0x02;   // texture uses a palette
+		const Alpha = 0x08;      // alpha channel image
+		const TeamColor0 = 0x10; // team color flags
+		const TeamColor1 = 0x20;
+
+		const _ = !0;
+	}
+}
+
+struct TextureMeta {
+	name: String,
+	size: [u32; 2],
+	pallete: bool,
+	alpha: bool,
+	team_colour: bool,
+}
+
+impl TextureMeta {
+	fn load_default(fs: &mut HwFs) -> HashMap<String, Self> {
+		let mut ll_file = fs.open("textures.ll").unwrap();
+		let ll = LL::read(&mut ll_file).unwrap();
+		TextureMeta::new(&ll)
+	}
+
+	fn new(ll: &LL) -> HashMap<String, Self> {
+		(ll.lifs.iter())
+			.filter(|l| l.textureName.len() > 0)
+			.map(|l| {
+				let local_name = l.textureName.to_string();
+				let shared_from = l.sharedFrom.map(|s| &ll.lifs[s as usize]);
+				if let Some(s) = shared_from {
+					assert!(l.size == s.size);
+					assert!(s.flags.contains(l.flags));
+				}
+				let true_name = shared_from
+					.map(|s| s.textureName.to_string())
+					.unwrap_or_else(|| local_name.clone());
+				(
+					local_name.to_ascii_lowercase(),
+					TextureMeta {
+						name: true_name,
+						size: l.size,
+						pallete: l.flags.contains(TextureFlags::Paletted),
+						alpha: l.flags.contains(TextureFlags::Alpha),
+						team_colour: (l.flags)
+							.intersects(TextureFlags::TeamColor0 | TextureFlags::TeamColor1),
+					},
+				)
+			})
+			.collect()
+	}
+}
+
+pub struct ImportModels {
+	texture_list: HashMap<String, TextureMeta>,
+}
+impl ImportModels {
+	pub fn new(fs: &mut HwFs) -> Self {
+		let texture_list = TextureMeta::load_default(fs);
+		Self { texture_list }
+	}
 }

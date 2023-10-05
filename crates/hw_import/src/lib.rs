@@ -1,19 +1,17 @@
-use big::BigChain;
-use model::make_model;
+use big::HwFs;
+use model::ImportModels;
 
 mod big;
 mod model;
 
-pub struct HWImporter {}
+pub struct HWImporter {
+	models: ImportModels,
+}
 
 impl HWImporter {
-	pub fn load() {
-		let mut bigs = BigChain::load();
-
-		let test = bigs
-			.open("R1/ResourceCollector/RL0/LOD0/ResourceCollector.peo")
-			.unwrap();
-
-		make_model(test);
+	pub fn load() -> Self {
+		let mut fs = HwFs::load();
+		let models = ImportModels::new(&mut fs);
+		Self { models }
 	}
 }
