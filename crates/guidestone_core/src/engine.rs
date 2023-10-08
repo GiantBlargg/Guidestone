@@ -1,14 +1,7 @@
-use std::path::Path;
-
 use hw_import::HWImporter;
 
 use crate::{
-	camera::OrbitCamera,
-	fs::ClassicFS,
-	input,
-	math::UVec2,
-	model::{Model, ModelCache},
-	FrameInfo, PlatformConfig, Renderer,
+	camera::OrbitCamera, input, math::UVec2, model::ModelCache, FrameInfo, PlatformConfig, Renderer,
 };
 pub struct EngineInit {}
 
@@ -20,7 +13,6 @@ pub struct Engine {
 
 impl Engine {
 	pub fn init() -> (PlatformConfig, EngineInit) {
-		HWImporter::load();
 		// TODO: Load from config
 		let min_res: UVec2 = UVec2::new(640, 480);
 		(
@@ -44,17 +36,12 @@ impl Engine {
 	}
 
 	pub fn start_game(&mut self) {
-		let classic_fs = ClassicFS::default();
+		let mut hw_import = HWImporter::load();
 
-		let model = Model::load_classic_model(
-			&classic_fs,
-			Path::new("r1/resourcecollector/rl0/lod0/resourcecollector.peo"),
-		)
-		.unwrap();
-
-		let mut model_cache = ModelCache::default();
-
-		model_cache.push(model);
+		let model_cache = ModelCache::load(
+			&mut hw_import,
+			vec!["r1/lightinterceptor/rl0/lod0/lightinterceptor.peo".to_string()],
+		);
 
 		self.render.set_model_cache(model_cache);
 	}

@@ -4,12 +4,10 @@ use std::{
 	ops::{Add, Deref, DerefMut, Div, Index, IndexMut, Mul, Neg, Sub},
 };
 
-use crate::fs::FromRead;
-
 use super::num_traits::Float;
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, FromRead, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Vector<T, const N: usize>([T; N]);
 
 // Unsized Vector Functions

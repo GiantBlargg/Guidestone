@@ -1,11 +1,15 @@
 use std::{
-	collections::{BTreeMap, HashMap},
-	io::{self, SeekFrom},
+	collections::HashMap,
+	io::{self, Read, Seek, SeekFrom},
 	num::NonZeroU32,
 };
 
 use binrw::{binread, file_ptr::NonZeroFilePtr32, BinRead, FilePtr32, NullString};
 use bitflags::bitflags;
+use common::{
+	math::Vector,
+	model::{Material, Mesh, Model, Node, Texture, Vertex},
+};
 
 use crate::big::HwFs;
 
@@ -63,8 +67,8 @@ bitflags! {
 	}
 }
 
-#[allow(dead_code)]
 #[binread]
+#[allow(dead_code)]
 struct MaterialEntry {
 	#[br(try, parse_with = NonZeroFilePtr32::parse)]
 	name: Option<NullString>, // Offset to name of material (may be a CRC32).
@@ -81,14 +85,12 @@ struct MaterialEntry {
 	                   // textureNameSave: u32, // the name of the texture, after the texture has been registered
 }
 
-#[allow(dead_code)]
 #[binread]
 struct VertexEntry {
 	pos: [f32; 3],
 	normal_index: u32,
 }
 
-#[allow(dead_code)]
 #[binread]
 pub struct PolyEntry {
 	face_normal_index: u32, // Index into the face normal list.
@@ -136,7 +138,7 @@ struct PolygonObject {
 	daughter: Option<u32>, // link to child object
 	#[br(try, map = |x: Option<NonZeroU32>| Some((x?.get() - 68) / 112))]
 	sister: Option<u32>, // link to sibling object
-	local_matrix: [f32; 16],
+	local_matrix: [[f32; 4]; 4],
 }
 
 #[binread]
@@ -157,14 +159,31 @@ struct LL {
 #[br(import_raw(strings_offset: u32))]
 struct LLElement {
 	#[br(args{offset: strings_offset.into()}, parse_with = FilePtr32::parse)]
-	textureName: NullString, //name of texture, an offset from start of string block
-	size: [u32; 2],      //size of texture
+	name: NullString, //name of texture, an offset from start of string block
+	size: [u32; 2], //size of texture
+	#[br(pad_after = 12)]
 	flags: TextureFlags, //flags for things like alpha and luminance map
-	// imageCRC: u32,       //crc of the unquantized image
-	// nShared: i32,        //number of images which share this one
-	// sharedTo: u32,       //list of indices of images which share this one
-	#[br(pad_before = 12, map(|x| if x == u32::MAX {None} else {Some(x)}))]
-	sharedFrom: Option<u32>, //image this one is shared from, or -1 if none
+	// imageCRC: u32,      //crc of the unquantized image
+	// nShared: i32,       //number of images which share this one
+	// sharedTo: u32,      //list of indices of images which share this one
+	#[br(map(|x| if x == u32::MAX {None} else {Some(x)}))]
+	shared_from: Option<u32>, //image this one is shared from, or -1 if none
+}
+
+#[binread]
+#[br(little, magic = b"Willy 7\0")]
+struct Lif {
+	#[br(temp, assert(version == 0x104))]
+	version: u32,
+	flags: TextureFlags, // to plug straight into texreg flags
+	size: [u32; 2],      // dimensions of image
+	// paletteCRC: u32,      // a CRC of palettes for fast comparison
+	// imageCRC: u32,        // crc of the unquantized image
+	#[br(pad_before = 8)]
+	data: u32, // pointer to actual image
+	palette: u32, // pointer to palette for this image
+	#[allow(dead_code)]
+	team_effect: [u32; 2], // pointers to palettes of team color effect
 }
 
 #[derive(BinRead, PartialEq, Eq, Clone, Copy)]
@@ -181,10 +200,11 @@ bitflags! {
 	}
 }
 
+#[allow(dead_code)]
 struct TextureMeta {
 	name: String,
 	size: [u32; 2],
-	pallete: bool,
+	palette: bool,
 	alpha: bool,
 	team_colour: bool,
 }
@@ -198,23 +218,23 @@ impl TextureMeta {
 
 	fn new(ll: &LL) -> HashMap<String, Self> {
 		(ll.lifs.iter())
-			.filter(|l| l.textureName.len() > 0)
+			.filter(|l| l.name.len() > 0)
 			.map(|l| {
-				let local_name = l.textureName.to_string();
-				let shared_from = l.sharedFrom.map(|s| &ll.lifs[s as usize]);
+				let local_name = l.name.to_string();
+				let shared_from = l.shared_from.map(|s| &ll.lifs[s as usize]);
 				if let Some(s) = shared_from {
 					assert!(l.size == s.size);
 					assert!(s.flags.contains(l.flags));
 				}
 				let true_name = shared_from
-					.map(|s| s.textureName.to_string())
+					.map(|s| s.name.to_string())
 					.unwrap_or_else(|| local_name.clone());
 				(
 					local_name.to_ascii_lowercase(),
 					TextureMeta {
 						name: true_name,
 						size: l.size,
-						pallete: l.flags.contains(TextureFlags::Paletted),
+						palette: l.flags.contains(TextureFlags::Paletted),
 						alpha: l.flags.contains(TextureFlags::Alpha),
 						team_colour: (l.flags)
 							.intersects(TextureFlags::TeamColor0 | TextureFlags::TeamColor1),
@@ -225,6 +245,31 @@ impl TextureMeta {
 	}
 }
 
+struct Surface {
+	node: u32,
+	texture: Option<String>,
+	self_illum: bool,
+	double_sided: bool,
+	alpha: bool,
+	team_colour: bool,
+	vertices: Vec<Vertex>,
+}
+impl Surface {
+	fn can_merge(&self, other: &Surface) -> bool {
+		self.node == other.node
+			&& self.texture == other.texture
+			&& self.self_illum == other.self_illum
+			&& self.double_sided == other.double_sided
+			&& self.alpha == other.alpha
+			&& self.team_colour == other.team_colour
+	}
+
+	fn merge(&mut self, mut other: Surface) {
+		assert!(self.can_merge(&other));
+		self.vertices.append(&mut other.vertices);
+	}
+}
+
 pub struct ImportModels {
 	texture_list: HashMap<String, TextureMeta>,
 }
@@ -232,5 +277,254 @@ impl ImportModels {
 	pub fn new(fs: &mut HwFs) -> Self {
 		let texture_list = TextureMeta::load_default(fs);
 		Self { texture_list }
+	}
+
+	pub fn load_model(&mut self, fs: &mut HwFs, path: &str) -> io::Result<Model> {
+		let geo = Geo::read(&mut fs.open(path).unwrap()).unwrap();
+		let folder = {
+			let mut path_vec: Vec<_> = path.split(['\\', '/']).collect();
+			path_vec.pop();
+			path_vec.join("\\")
+		};
+
+		let mut nodes = Vec::new();
+		let mut triangles = Vec::new();
+
+		for po in geo.polygon_objects {
+			let node = nodes.len() as u32;
+			nodes.push(Node {
+				parent: po.mother,
+				transform: po.local_matrix.into(),
+			});
+
+			for pe in po.polygons {
+				let mat = &geo.materials[pe.material_index as usize];
+				let smooth = mat.flags.contains(MaterialFlags::Smoothing);
+				let double_sided = mat.flags.contains(MaterialFlags::DoubleSided);
+				let self_illum = mat.flags.contains(MaterialFlags::SelfIllum);
+
+				let texture_meta = (mat.texture.as_ref()).map(|tex| {
+					let texture = format!("{}\\{}", folder, tex).to_lowercase();
+					self.texture_list.get(&texture).unwrap()
+				});
+				let texture = texture_meta.map(|t| t.name.clone());
+				let alpha = texture_meta.map(|m| m.alpha).unwrap_or(false);
+				let team_colour = texture_meta.map(|m| m.team_colour).unwrap_or(false);
+
+				let vertices = (0..3)
+					.map(|i| {
+						let vertex: &VertexEntry = &po.vertices[usize::from(pe.vertex_index[i])];
+						let normal = {
+							let normal_index = if smooth {
+								vertex.normal_index
+							} else {
+								pe.face_normal_index
+							};
+							po.normals[normal_index as usize].pos
+						};
+
+						let uv = pe.uv[i];
+
+						Vertex {
+							pos: vertex.pos.into(),
+							normal: normal.into(),
+							uv: uv.into(),
+						}
+					})
+					.collect();
+
+				triangles.push(Surface {
+					node,
+					texture,
+					self_illum,
+					double_sided,
+					alpha,
+					team_colour,
+					vertices,
+				})
+			}
+		}
+
+		patch(path, &mut triangles);
+
+		let surfaces = if true {
+			triangles.sort_by(|a, b| {
+				(a.node.cmp(&b.node))
+					.then_with(|| a.texture.cmp(&b.texture))
+					.then_with(|| a.self_illum.cmp(&b.self_illum))
+					.then_with(|| a.double_sided.cmp(&b.double_sided))
+					.then_with(|| a.alpha.cmp(&b.alpha))
+					.then_with(|| a.team_colour.cmp(&b.team_colour))
+			});
+
+			let mut surfaces: Vec<Surface> = Vec::new();
+
+			for t in triangles {
+				match surfaces.last_mut() {
+					Some(merge) if merge.can_merge(&t) => merge.merge(t),
+					_ => surfaces.push(t),
+				}
+			}
+
+			surfaces
+		} else {
+			triangles
+		};
+
+		let mut vertices = Vec::new();
+		let mut materials = Vec::new();
+		let mut meshes = Vec::new();
+
+		for mut s in surfaces {
+			let mat = Material { texture: s.texture };
+			let mat_id = materials.iter().position(|m| *m == mat).unwrap_or_else(|| {
+				let id = materials.len();
+				materials.push(mat);
+				id
+			}) as u32;
+			meshes.push(Mesh {
+				first_vertex: vertices.len() as u32,
+				num_vertices: s.vertices.len() as u32,
+				material: mat_id,
+				node: s.node,
+			});
+			vertices.append(&mut s.vertices);
+		}
+
+		Ok(Model {
+			vertices,
+			materials,
+			nodes,
+			meshes,
+		})
+	}
+
+	pub fn load_texture(&mut self, fs: &mut HwFs, path: &str) -> io::Result<Texture> {
+		let mut lif_file = fs.open(&format!("{}.lif", path)).unwrap();
+		let lif_header = Lif::read(&mut lif_file).unwrap();
+
+		lif_file
+			.seek(SeekFrom::Start(lif_header.data.into()))
+			.unwrap();
+
+		let pixel_count = (lif_header.size[0] * lif_header.size[1]) as usize;
+
+		let data = if lif_header.flags.contains(TextureFlags::Paletted) {
+			let mut data = vec![0u8; pixel_count];
+			lif_file.read_exact(&mut data).unwrap();
+
+			lif_file
+				.seek(SeekFrom::Start(lif_header.palette.into()))
+				.unwrap();
+
+			let palette: [[u8; 4]; 256] = BinRead::read(&mut lif_file).unwrap();
+
+			data.into_iter()
+				.map(|i| palette[usize::from(i)].into())
+				.collect()
+		} else {
+			Vec::<[u8; 4]>::read_args(
+				&mut lif_file,
+				binrw::VecArgs {
+					count: pixel_count,
+					inner: (),
+				},
+			)
+			.unwrap()
+			.into_iter()
+			.map(Into::into)
+			.collect()
+		};
+		Ok(Texture {
+			size: lif_header.size.into(),
+			rgba: data,
+		})
+	}
+}
+
+#[derive(Default)]
+struct Patch {
+	triangle: u32,
+	vertex: u8,
+	pos: Vector<Option<(f32, f32)>, 3>,
+	normal: Vector<Option<(f32, f32)>, 3>,
+	uv: Vector<Option<(f32, f32)>, 2>,
+}
+
+fn patch_vector<T: Copy + PartialEq, const N: usize>(
+	target: &mut Vector<T, N>,
+	patch: &Vector<Option<(T, T)>, N>,
+) {
+	for i in 0..N {
+		if let Some((old, new)) = patch[i] {
+			if target[i] != old {
+				log::warn!(target:"model::classic::patch", "Unexpected old value! Patching anyway...");
+			}
+			target[i] = new;
+		}
+	}
+}
+
+struct PatchSet(HashMap<String, Vec<Patch>>);
+
+fn patch(path: &str, triangles: &mut [Surface]) {
+	let patch_set = {
+		let patch_set = [
+			(
+				"r1/resourcecollector/rl0/lod0/resourcecollector.peo",
+				vec![
+					Patch {
+						triangle: 177,
+						vertex: 2,
+						uv: Vector::<_, 2>::new(Some((0.49725038, 0.25)), None),
+						..Default::default()
+					},
+					Patch {
+						triangle: 179,
+						vertex: 2,
+						uv: Vector::<_, 2>::new(Some((0.49725038, 0.25)), None),
+						..Default::default()
+					},
+				],
+			),
+			(
+				"r1/mothership/rl0/lod0/mothership.peo",
+				vec![
+					Patch {
+						triangle: 415,
+						vertex: 0,
+						uv: Vector::<_, 2>::new(None, Some((0.9865452, 0.8771702))),
+						..Default::default()
+					},
+					Patch {
+						triangle: 415,
+						vertex: 2,
+						uv: Vector::<_, 2>::new(None, Some((0.9962938, 0.875))),
+						..Default::default()
+					},
+					Patch {
+						triangle: 419,
+						vertex: 2,
+						uv: Vector::<_, 2>::new(None, Some((1.0037062, 1.0))),
+						..Default::default()
+					},
+				],
+			),
+		];
+		PatchSet(
+			patch_set
+				.into_iter()
+				.map(|(path, patches)| (path.into(), patches))
+				.collect(),
+		)
+	};
+
+	if let Some(patches) = patch_set.0.get(path) {
+		for patch in patches {
+			let vertex = &mut triangles[patch.triangle as usize].vertices[patch.vertex as usize];
+			patch_vector(&mut vertex.pos, &patch.pos);
+			patch_vector(&mut vertex.normal, &patch.normal);
+			patch_vector(&mut vertex.uv, &patch.uv);
+		}
 	}
 }

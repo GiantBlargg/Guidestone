@@ -79,7 +79,7 @@ impl<R: io::Read + io::Seek> BigFile<R> {
 	}
 
 	pub fn open(&mut self, filename: &str) -> Option<impl io::Read + io::Seek> {
-		let filename = filename.to_lowercase();
+		let filename = filename.to_lowercase().replace('\\', "/");
 		if let Some(f) = self.toc.get(&filename) {
 			let data = {
 				self.read

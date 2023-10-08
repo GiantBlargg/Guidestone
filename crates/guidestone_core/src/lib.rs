@@ -1,13 +1,12 @@
 pub use camera::Camera;
+pub use common::math;
 pub use engine::Engine;
 use math::UVec2;
 use model::ModelCache;
 
 mod camera;
 mod engine;
-mod fs;
 pub mod input;
-pub mod math;
 pub mod model;
 
 #[must_use]

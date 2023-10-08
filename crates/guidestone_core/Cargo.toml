@@ -6,7 +6,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-guidestone_proc_macro = { path = "../guidestone_proc_macro" }
+common = { path = "../common" }
 hw_import = { path = "../hw_import" }
 bitflags = "2.4"
 log = "0.4.20"

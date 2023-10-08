@@ -1,105 +1,109 @@
-use crate::{
-	fs::ClassicFS,
-	math::{Mat4, U8Vec4, UVec2, Vec2, Vec3},
-};
+use std::collections::{HashMap, HashSet};
 
-mod classic;
-
-#[repr(C)]
-pub struct Vertex {
-	pub pos: Vec3,
-	pub normal: Vec3,
-	pub uv: Vec2,
-}
-
-pub struct Texture {
-	pub size: UVec2,
-	pub has_alpha: bool,
-	pub rgba: Vec<U8Vec4>,
-}
-
-#[derive(PartialEq, Eq)]
-pub struct Material {
-	pub texture: u32,
-}
-
-pub struct Node {
-	pub parent: Option<u32>,
-	pub transform: Mat4,
-}
-
-pub struct Mesh {
-	pub first_vertex: u32,
-	pub num_vertices: u32,
-	pub material: u32,
-	pub node: u32,
-}
+use common::math::{U8Vec4, UVec2};
+pub use common::model::*;
+use hw_import::HWImporter;
 
 pub struct CachedModel {
 	pub nodes: Vec<Node>,
 	pub meshes: Vec<Mesh>,
 }
 
-pub struct Model {
-	vertices: Vec<Vertex>,
-	textures: Vec<Texture>,
-	materials: Vec<Material>,
-	nodes: Vec<Node>,
-	meshes: Vec<Mesh>,
-}
-
-impl Model {
-	pub fn load_classic_model(fs: &ClassicFS, path: &std::path::Path) -> std::io::Result<Self> {
-		classic::load_model(fs, path)
-	}
-}
-
 pub struct ModelCache {
 	pub vertices: Vec<Vertex>,
 	pub textures: Vec<Texture>,
-	pub materials: Vec<Material>,
+	pub materials: Vec<Material<u32>>,
 	pub models: Vec<CachedModel>,
 }
 
 impl ModelCache {
-	pub fn push(&mut self, mut model: Model) -> u32 {
-		for mat in &mut model.materials {
-			if mat.texture >= model.textures.len() as u32 {
-				mat.texture = 0;
-			} else {
-				mat.texture += self.textures.len() as u32;
-			}
-		}
+	pub fn load(hw_import: &mut HWImporter, models: Vec<String>) -> Self {
+		let models: Vec<_> = models
+			.into_iter()
+			.map(|path| hw_import.load_model(&path).unwrap())
+			.collect();
 
-		for mesh in &mut model.meshes {
-			mesh.first_vertex += self.vertices.len() as u32;
-			mesh.material += self.materials.len() as u32;
-		}
+		let textures = models
+			.iter()
+			.flat_map(|model| {
+				model
+					.materials
+					.iter()
+					.filter_map(|mat| mat.texture.to_owned())
+			})
+			.collect::<HashSet<_>>()
+			.into_iter()
+			.map(|tex_path| {
+				let texture = hw_import.load_texture(&tex_path).unwrap();
+				(tex_path, texture)
+			})
+			.collect();
 
-		self.vertices.append(&mut model.vertices);
-		self.textures.append(&mut model.textures);
-		self.materials.append(&mut model.materials);
+		Self::new(models, textures)
+	}
 
-		self.models.push(CachedModel {
-			nodes: model.nodes,
-			meshes: model.meshes,
+	fn new(models: Vec<Model>, textures: HashMap<String, Texture>) -> Self {
+		let (mut textures, texture_index): (Vec<_>, HashMap<_, _>) = textures
+			.into_iter()
+			.enumerate()
+			.map(|(i, (name, tex))| (tex, (name, i as u32)))
+			.unzip();
+
+		let default_texture = textures.len() as u32;
+		textures.push(Texture {
+			size: UVec2::new(1, 1),
+			rgba: vec![U8Vec4::new(255, 255, 255, 255)],
 		});
 
-		self.models.len() as u32 - 1
-	}
-}
+		let mut vertices = Vec::new();
+		let mut materials: Vec<Material<Option<String>>> = Vec::new();
+		let mut cached_models = Vec::new();
 
-impl Default for ModelCache {
-	fn default() -> Self {
+		for mut model in models {
+			let mats: Vec<u32> = model
+				.materials
+				.into_iter()
+				.map(|mat| {
+					(match materials.iter().position(|m| *m == mat) {
+						Some(n) => n,
+						None => {
+							let n = materials.len();
+							materials.push(mat);
+							n
+						}
+					}) as u32
+				})
+				.collect();
+
+			for mesh in &mut model.meshes {
+				mesh.first_vertex += vertices.len() as u32;
+				mesh.material = mats[mesh.material as usize];
+			}
+
+			vertices.append(&mut model.vertices);
+
+			cached_models.push(CachedModel {
+				nodes: model.nodes,
+				meshes: model.meshes,
+			})
+		}
+
+		let materials = materials
+			.into_iter()
+			.map(|mat| Material::<u32> {
+				texture: mat
+					.texture
+					.as_ref()
+					.map(|t| texture_index[t])
+					.unwrap_or(default_texture),
+			})
+			.collect();
+
 		Self {
-			vertices: Vec::new(),
-			textures: vec![Texture {
-				size: UVec2::new(1, 1),
-				has_alpha: false,
-				rgba: vec![U8Vec4::new(255, 255, 255, 255)],
-			}],
-			materials: Vec::new(),
-			models: Vec::new(),
+			vertices,
+			textures,
+			materials,
+			models: cached_models,
 		}
 	}
 }

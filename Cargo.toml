@@ -1,8 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+	"crates/common",
 	"crates/guidestone_core",
-	"crates/guidestone_proc_macro",
 	"crates/guidestone_winit",
 	"crates/hw_import",
 	"crates/render_wgpu",

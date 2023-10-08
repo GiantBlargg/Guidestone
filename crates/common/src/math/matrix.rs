@@ -4,12 +4,10 @@ use std::{
 	ops::{Index, IndexMut, Mul},
 };
 
-use crate::fs::FromRead;
-
 use super::{num_traits::Float, Vector};
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, FromRead)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Matrix<T, const N: usize, const M: usize>([Vector<T, M>; N]);
 
 impl<T, const N: usize, const M: usize> Default for Matrix<T, N, M>
