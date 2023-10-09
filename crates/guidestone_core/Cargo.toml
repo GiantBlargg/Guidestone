@@ -8,6 +8,6 @@ license.workspace = true
 
 [dependencies]
 common = { path = "../common" }
+hecs = "0.10.3"
 hw_import = { path = "../hw_import" }
-bitflags = "2.4"
-log = "0.4.20"
+log = "0.4"

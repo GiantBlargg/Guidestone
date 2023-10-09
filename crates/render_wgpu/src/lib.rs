@@ -3,7 +3,7 @@ use std::{mem::size_of, num::NonZeroU64, slice};
 use guidestone_core::{
 	math::{Mat4, UVec2},
 	model::{CachedModel, ModelCache, Vertex},
-	FrameInfo, Renderer,
+	FrameInfo, RenderList, Renderer,
 };
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use wgpu::{
@@ -41,6 +41,8 @@ pub struct Render {
 	uniform_bind: BindGroup,
 
 	material_bind_layout: BindGroupLayout,
+
+	render_list: RenderList,
 }
 
 impl Render {
@@ -262,6 +264,7 @@ impl Render {
 			uniform_buffer,
 			uniform_bind,
 			material_bind_layout,
+			render_list: Default::default(),
 		}
 	}
 }
@@ -420,6 +423,10 @@ impl Renderer for Render {
 			materials,
 			models: model_cache.models,
 		});
+	}
+
+	fn set_render_list(&mut self, render_list: RenderList) {
+		self.render_list = render_list;
 	}
 }
 

@@ -1,7 +1,10 @@
+use std::time::{Duration, Instant};
+
 use hw_import::HWImporter;
 
 use crate::{
-	camera::OrbitCamera, input, math::UVec2, model::ModelCache, FrameInfo, PlatformConfig, Renderer,
+	camera::OrbitCamera, input, math::UVec2, model::ModelCache, universe::Universe, FrameInfo,
+	PlatformConfig, Renderer,
 };
 pub struct EngineInit {}
 
@@ -9,6 +12,8 @@ pub struct Engine {
 	input: input::State,
 	render: Box<dyn Renderer>,
 	camera: OrbitCamera,
+	last_tick: Option<Instant>,
+	universe: Universe,
 }
 
 impl Engine {
@@ -30,6 +35,8 @@ impl Engine {
 			input: Default::default(),
 			render,
 			camera: OrbitCamera::new(6000.0),
+			universe: Default::default(),
+			last_tick: None,
 		};
 		engine.start_game();
 		engine
@@ -44,6 +51,8 @@ impl Engine {
 		);
 
 		self.render.set_model_cache(model_cache);
+
+		self.last_tick = Some(Instant::now())
 	}
 
 	// Returns true when platform should shutdown.
@@ -63,6 +72,8 @@ impl Engine {
 			self.input.reset();
 		}
 
+		self.tick();
+
 		self.render.render_frame(FrameInfo {
 			resize,
 			camera: self.camera.get_camera(),
@@ -73,5 +84,29 @@ impl Engine {
 
 	pub fn input(&mut self) -> &mut input::State {
 		&mut self.input
+	}
+}
+
+impl Engine {
+	const UNIVERSE_RATE: u64 = 16;
+	const UNIVERSE_PERIOD: Duration = Duration::from_nanos(1000000000 / Self::UNIVERSE_RATE);
+
+	fn tick(&mut self) {
+		let mut update = false;
+
+		while match &mut self.last_tick {
+			Some(t) if (Instant::now() - *t) >= Self::UNIVERSE_PERIOD => {
+				*t -= Self::UNIVERSE_PERIOD;
+				true
+			}
+			_ => false,
+		} {
+			update = true;
+			self.universe.update(Self::UNIVERSE_PERIOD);
+		}
+
+		if update {
+			self.render.set_render_list(self.universe.get_render_list())
+		}
 	}
 }

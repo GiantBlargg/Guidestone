@@ -1,7 +1,7 @@
 use std::{
 	array,
 	iter::Sum,
-	ops::{Add, Deref, DerefMut, Div, Index, IndexMut, Mul, Neg, Sub},
+	ops::{Add, AddAssign, Deref, DerefMut, Div, Index, IndexMut, Mul, Neg, Sub},
 };
 
 use super::num_traits::Float;
@@ -95,6 +95,14 @@ impl<T: Copy + Add<Output = T>, const N: usize> Add<Vector<T, N>> for Vector<T, 
 
 	fn add(self, rhs: Vector<T, N>) -> Self::Output {
 		Vector(array::from_fn(|i| self[i] + rhs[i]))
+	}
+}
+
+impl<T: Copy + AddAssign<T>, const N: usize> AddAssign for Vector<T, N> {
+	fn add_assign(&mut self, rhs: Self) {
+		for i in 0..N {
+			self[i] += rhs[i];
+		}
 	}
 }
 
