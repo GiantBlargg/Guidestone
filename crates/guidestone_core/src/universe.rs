@@ -9,6 +9,8 @@ struct StaticCommon {
 	model: u32,
 	mass: f32,
 	moment_of_inertia: Vec3,
+	max_velocity: f32,
+	max_rot: f32,
 }
 
 struct StaticInfo(Entity);
@@ -28,6 +30,14 @@ pub struct Universe {
 	world: World,
 }
 
+fn cap_vector(vec: Vec3, cap: f32) -> Vec3 {
+	Vec3::new(
+		vec.x.clamp(-cap, cap),
+		vec.y.clamp(-cap, cap),
+		vec.z.clamp(-cap, cap),
+	)
+}
+
 impl Universe {
 	pub fn update(&mut self, delta: Duration) {
 		let delta_secs = delta.as_secs_f32();
@@ -38,9 +48,10 @@ impl Universe {
 		{
 			let static_common = static_infos.get(static_info.0).unwrap();
 
-			pos_info.velocity += (pos_info.force / static_common.mass) * delta_secs;
-
-			// TODO: Cap Velocity
+			pos_info.velocity = cap_vector(
+				pos_info.velocity + (pos_info.force / static_common.mass) * delta_secs,
+				static_common.max_velocity,
+			);
 
 			pos_info.position += pos_info.velocity * delta_secs;
 		}
@@ -49,9 +60,11 @@ impl Universe {
 		{
 			let static_common = static_infos.get(static_info.0).unwrap();
 
-			rot_info.rot_speed += (rot_info.torque / static_common.moment_of_inertia) * delta_secs;
-
-			// TODO: Cap Velocity
+			rot_info.rot_speed = cap_vector(
+				rot_info.rot_speed
+					+ (rot_info.torque / static_common.moment_of_inertia) * delta_secs,
+				static_common.max_rot,
+			);
 
 			let rotate = rot_info.rot_speed * delta_secs;
 
