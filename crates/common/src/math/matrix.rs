@@ -1,7 +1,7 @@
 use std::{
 	array,
 	iter::Sum,
-	ops::{Index, IndexMut, Mul},
+	ops::{Index, IndexMut, Mul, MulAssign},
 };
 
 use super::{num_traits::Float, Vector};
@@ -19,9 +19,9 @@ where
 	}
 }
 
-impl<T, const N: usize, const M: usize> From<[[T; M]; N]> for Matrix<T, N, M> {
-	fn from(value: [[T; M]; N]) -> Self {
-		Self(value.map(From::from))
+impl<T, const N: usize, const M: usize, I: Into<Vector<T, M>>> From<[I; N]> for Matrix<T, N, M> {
+	fn from(value: [I; N]) -> Self {
+		Self(value.map(Into::into))
 	}
 }
 
@@ -72,6 +72,15 @@ where
 
 	fn mul(self, rhs: Matrix<T, P, N>) -> Self::Output {
 		Matrix(array::from_fn(|i| self * rhs[i]))
+	}
+}
+
+impl<T, const N: usize> MulAssign for Matrix<T, N, N>
+where
+	Matrix<T, N, N>: Copy + Mul<Output = Matrix<T, N, N>>,
+{
+	fn mul_assign(&mut self, rhs: Self) {
+		*self = *self * rhs;
 	}
 }
 

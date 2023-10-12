@@ -22,20 +22,16 @@ pub struct FrameInfo {
 	pub camera: Camera,
 }
 
-pub struct RenderMesh {
+pub struct RenderItem {
 	pub model: u32,
 	pub position: Vec3,
 	pub rotation: Mat3,
 }
 
-#[derive(Default)]
-pub struct RenderList {
-	pub models: Vec<RenderMesh>,
-}
 pub trait Renderer {
 	fn render_frame(&mut self, frame: FrameInfo);
 
 	fn set_model_cache(&mut self, model_cache: ModelCache);
 
-	fn set_render_list(&mut self, render_list: RenderList);
+	fn set_render_list(&mut self, render_list: Vec<RenderItem>);
 }

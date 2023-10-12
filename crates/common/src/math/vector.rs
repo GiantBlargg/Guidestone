@@ -1,7 +1,10 @@
 use std::{
 	array,
 	iter::Sum,
-	ops::{Add, AddAssign, Deref, DerefMut, Div, Index, IndexMut, Mul, Neg, Sub},
+	ops::{
+		Add, AddAssign, Deref, DerefMut, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub,
+		SubAssign,
+	},
 };
 
 use super::num_traits::Float;
@@ -74,51 +77,70 @@ impl<T: Neg, const N: usize> Neg for Vector<T, N> {
 	}
 }
 
-impl<T: Mul<M>, M: Copy, const N: usize> Mul<M> for Vector<T, N> {
+// Scalar Ops
+
+impl<T: Copy + Mul, const N: usize> Mul<T> for Vector<T, N> {
 	type Output = Vector<T::Output, N>;
 
-	fn mul(self, rhs: M) -> Self::Output {
+	fn mul(self, rhs: T) -> Self::Output {
 		Vector(self.0.map(|lhs| lhs * rhs))
 	}
 }
 
-impl<T: Div<D>, D: Copy, const N: usize> Div<D> for Vector<T, N> {
+impl<T: Copy + Div, const N: usize> Div<T> for Vector<T, N> {
 	type Output = Vector<T::Output, N>;
 
-	fn div(self, rhs: D) -> Self::Output {
+	fn div(self, rhs: T) -> Self::Output {
 		Vector(self.0.map(|lhs| lhs / rhs))
 	}
 }
 
-impl<T: Copy + Add<Output = T>, const N: usize> Add<Vector<T, N>> for Vector<T, N> {
-	type Output = Vector<T, N>;
+// Vector per element ops
 
-	fn add(self, rhs: Vector<T, N>) -> Self::Output {
-		Vector(array::from_fn(|i| self[i] + rhs[i]))
-	}
-}
+macro_rules! element_op {
+	($trt:ident, $func:ident) => {
+		impl<T: Copy + $trt<Output = T>, const N: usize> $trt for Vector<T, N> {
+			type Output = Vector<T, N>;
 
-impl<T: Copy + AddAssign<T>, const N: usize> AddAssign for Vector<T, N> {
-	fn add_assign(&mut self, rhs: Self) {
-		for i in 0..N {
-			self[i] += rhs[i];
+			fn $func(self, rhs: Vector<T, N>) -> Self::Output {
+				Vector(array::from_fn(|i| self[i].$func(rhs[i])))
+			}
 		}
-	}
+	};
 }
 
-impl<T: Copy + Add<Output = T>, const N: usize> Sum<Vector<T, N>> for Vector<T, N> {
+macro_rules! element_op_assign {
+	($trt:ident, $func:ident) => {
+		impl<T: Copy + $trt<T>, const N: usize> $trt for Vector<T, N> {
+			fn $func(&mut self, rhs: Self) {
+				for i in 0..N {
+					self[i].$func(rhs[i]);
+				}
+			}
+		}
+	};
+}
+
+element_op!(Add, add);
+element_op!(Sub, sub);
+element_op!(Mul, mul);
+element_op!(Div, div);
+element_op_assign!(AddAssign, add_assign);
+element_op_assign!(SubAssign, sub_assign);
+element_op_assign!(MulAssign, mul_assign);
+element_op_assign!(DivAssign, div_assign);
+
+impl<T, const N: usize> Sum for Vector<T, N>
+where
+	Self: Add<Output = Self>,
+{
 	fn sum<I: Iterator<Item = Vector<T, N>>>(iter: I) -> Self {
 		iter.reduce(|acc, v| acc + v).unwrap()
 	}
 }
 
-impl<T: Copy + Sub<R>, R: Copy, const N: usize> Sub<Vector<R, N>> for Vector<T, N> {
-	type Output = Vector<T::Output, N>;
+// Vector Ops
 
-	fn sub(self, rhs: Vector<R, N>) -> Self::Output {
-		Vector(array::from_fn(|i| self[i] - rhs[i]))
-	}
-}
 impl<T: Mul, const N: usize> Vector<T, N> {
 	pub fn dot<D: Sum<T::Output>>(self, lhs: Self) -> D {
 		self.into_iter().zip(lhs).map(|(a, b)| a * b).sum()
@@ -172,6 +194,64 @@ impl<T> Vector<T, 3> {
 }
 impl<T> Vector<T, 4> {
 	pub fn new(x: T, y: T, z: T, w: T) -> Self {
+		Self([x, y, z, w])
+	}
+}
+
+impl<T> From<(T, T)> for Vector<T, 2> {
+	fn from((x, y): (T, T)) -> Self {
+		Self([x, y])
+	}
+}
+
+impl<T> From<(T, T, T)> for Vector<T, 3> {
+	fn from((x, y, z): (T, T, T)) -> Self {
+		Self([x, y, z])
+	}
+}
+impl<T> From<(Vector<T, 2>, T)> for Vector<T, 3> {
+	fn from((Vector([x, y]), z): (Vector<T, 2>, T)) -> Self {
+		Self([x, y, z])
+	}
+}
+impl<T> From<(T, Vector<T, 2>)> for Vector<T, 3> {
+	fn from((x, Vector([y, z])): (T, Vector<T, 2>)) -> Self {
+		Self([x, y, z])
+	}
+}
+
+impl<T> From<(T, T, T, T)> for Vector<T, 4> {
+	fn from((x, y, z, w): (T, T, T, T)) -> Self {
+		Self([x, y, z, w])
+	}
+}
+impl<T> From<(Vector<T, 2>, T, T)> for Vector<T, 4> {
+	fn from((Vector([x, y]), z, w): (Vector<T, 2>, T, T)) -> Self {
+		Self([x, y, z, w])
+	}
+}
+impl<T> From<(T, Vector<T, 2>, T)> for Vector<T, 4> {
+	fn from((x, Vector([y, z]), w): (T, Vector<T, 2>, T)) -> Self {
+		Self([x, y, z, w])
+	}
+}
+impl<T> From<(T, T, Vector<T, 2>)> for Vector<T, 4> {
+	fn from((x, y, Vector([z, w])): (T, T, Vector<T, 2>)) -> Self {
+		Self([x, y, z, w])
+	}
+}
+impl<T> From<(Vector<T, 2>, Vector<T, 2>)> for Vector<T, 4> {
+	fn from((Vector([x, y]), Vector([z, w])): (Vector<T, 2>, Vector<T, 2>)) -> Self {
+		Self([x, y, z, w])
+	}
+}
+impl<T> From<(Vector<T, 3>, T)> for Vector<T, 4> {
+	fn from((Vector([x, y, z]), w): (Vector<T, 3>, T)) -> Self {
+		Self([x, y, z, w])
+	}
+}
+impl<T> From<(T, Vector<T, 3>)> for Vector<T, 4> {
+	fn from((x, Vector([y, z, w])): (T, Vector<T, 3>)) -> Self {
 		Self([x, y, z, w])
 	}
 }

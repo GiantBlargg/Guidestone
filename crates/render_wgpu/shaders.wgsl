@@ -2,9 +2,14 @@ struct Camera {
 	mat: mat4x4<f32>,
 }
 
+struct Object {
+	transform: mat4x4<f32>
+}
+
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var default_sampler: sampler;
 @group(1) @binding(0) var base_texture: texture_2d<f32>;
+@group(2) @binding(0) var<uniform> object: Object;
 
 struct VertexOutput {
 	@location(0) world_pos: vec3<f32>,

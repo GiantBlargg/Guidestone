@@ -57,6 +57,8 @@ impl Engine {
 
 	// Returns true when platform should shutdown.
 	pub fn update(&mut self) -> bool {
+		let now = Instant::now();
+
 		let resize;
 		{
 			let input = &self.input;
@@ -72,7 +74,7 @@ impl Engine {
 			self.input.reset();
 		}
 
-		self.tick();
+		self.tick(now);
 
 		self.render.render_frame(FrameInfo {
 			resize,
@@ -91,22 +93,25 @@ impl Engine {
 	const UNIVERSE_RATE: u64 = 16;
 	const UNIVERSE_PERIOD: Duration = Duration::from_nanos(1000000000 / Self::UNIVERSE_RATE);
 
-	fn tick(&mut self) {
-		let mut update = false;
+	fn tick(&mut self, now: Instant) {
+		let update_count = if let Some(last) = &mut self.last_tick {
+			let delta = now.duration_since(*last);
+			let count = u32::try_from(delta.as_nanos() / Self::UNIVERSE_PERIOD.as_nanos())
+				.unwrap_or(u32::MAX);
+			*last += Self::UNIVERSE_PERIOD * count;
+			count
+		} else {
+			0
+		};
 
-		while match &mut self.last_tick {
-			Some(t) if (Instant::now() - *t) >= Self::UNIVERSE_PERIOD => {
-				*t -= Self::UNIVERSE_PERIOD;
-				true
-			}
-			_ => false,
-		} {
-			update = true;
+		if update_count == 0 {
+			return;
+		}
+
+		for _ in 0..update_count {
 			self.universe.update(Self::UNIVERSE_PERIOD);
 		}
 
-		if update {
-			self.render.set_render_list(self.universe.get_render_list())
-		}
+		self.render.set_render_list(self.universe.get_render_list())
 	}
 }

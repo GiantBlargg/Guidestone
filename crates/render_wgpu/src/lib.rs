@@ -1,15 +1,17 @@
 use std::{mem::size_of, num::NonZeroU64, slice};
 
 use guidestone_core::{
-	math::{Mat4, UVec2},
+	math::{Mat4, UVec2, Vec4},
 	model::{CachedModel, ModelCache, Vertex},
-	FrameInfo, RenderList, Renderer,
+	FrameInfo, RenderItem, Renderer,
 };
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use wgpu::{
-	util::DeviceExt, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer,
+	include_wgsl,
+	util::{BufferInitDescriptor, DeviceExt},
+	BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer, BufferDescriptor,
 	BufferUsages, Device, Extent3d, PresentMode, Queue, RenderPipeline, ShaderStages, Surface,
-	Texture, TextureDescriptor, TextureFormat, TextureUsages,
+	Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
 struct Assets {
@@ -24,6 +26,11 @@ struct ViewUniform {
 	camera: Mat4,
 }
 
+struct SceneItem {
+	model: u32,
+	data_offset: u32,
+}
+
 pub struct Render {
 	surface: Surface,
 	device: Device,
@@ -36,13 +43,15 @@ pub struct Render {
 
 	assets: Option<Assets>,
 	default_pipeline: RenderPipeline,
+	material_bind_layout: BindGroupLayout,
 
 	uniform_buffer: Buffer,
 	uniform_bind: BindGroup,
 
-	material_bind_layout: BindGroupLayout,
-
-	render_list: RenderList,
+	scene_bind_layout: BindGroupLayout,
+	scene_bind: BindGroup,
+	scene_buffer: Buffer,
+	scene_items: Vec<SceneItem>,
 }
 
 impl Render {
@@ -125,17 +134,28 @@ impl Render {
 				count: None,
 			}],
 		});
+
+		let scene_bind_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+			label: None,
+			entries: &[BindGroupLayoutEntry {
+				binding: 0,
+				visibility: ShaderStages::VERTEX,
+				ty: BindingType::Buffer {
+					ty: wgpu::BufferBindingType::Uniform,
+					has_dynamic_offset: true,
+					min_binding_size: NonZeroU64::new(64),
+				},
+				count: None,
+			}],
+		});
 		let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 			label: None,
-			bind_group_layouts: &[&global_bind, &material_bind_layout],
+			bind_group_layouts: &[&global_bind, &material_bind_layout, &scene_bind_layout],
 			push_constant_ranges: &[],
 		});
 
 		let default_pipeline = {
-			let shaders = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-				label: None,
-				source: wgpu::ShaderSource::Wgsl(include_str!("../shaders.wgsl").into()),
-			});
+			let shaders = device.create_shader_module(include_wgsl!("../shaders.wgsl"));
 
 			use wgpu::VertexAttribute;
 
@@ -206,7 +226,7 @@ impl Render {
 			})
 		};
 
-		let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+		let uniform_buffer = device.create_buffer(&BufferDescriptor {
 			label: None,
 			size: size_of::<ViewUniform>() as u64,
 			usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
@@ -245,10 +265,24 @@ impl Render {
 			},
 			mip_level_count: 1,
 			sample_count: 1,
-			dimension: wgpu::TextureDimension::D2,
+			dimension: TextureDimension::D2,
 			format: TextureFormat::Depth24Plus,
 			usage: TextureUsages::RENDER_ATTACHMENT,
 			view_formats: &[],
+		});
+		let scene_buffer = device.create_buffer(&BufferDescriptor {
+			label: None,
+			size: 1000 * size_of::<Mat4>() as u64,
+			usage: BufferUsages::UNIFORM,
+			mapped_at_creation: false,
+		});
+		let scene_bind = device.create_bind_group(&BindGroupDescriptor {
+			label: None,
+			layout: &scene_bind_layout,
+			entries: &[BindGroupEntry {
+				binding: 0,
+				resource: scene_buffer.as_entire_binding(),
+			}],
 		});
 
 		Self {
@@ -261,10 +295,13 @@ impl Render {
 			depth_buffer,
 			assets: None,
 			default_pipeline,
+			material_bind_layout,
 			uniform_buffer,
 			uniform_bind,
-			material_bind_layout,
-			render_list: Default::default(),
+			scene_bind_layout,
+			scene_bind,
+			scene_buffer,
+			scene_items: Vec::new(),
 		}
 	}
 }
@@ -294,7 +331,7 @@ impl Renderer for Render {
 					},
 					mip_level_count: 1,
 					sample_count: 1,
-					dimension: wgpu::TextureDimension::D2,
+					dimension: TextureDimension::D2,
 					format: TextureFormat::Depth24Plus,
 					usage: TextureUsages::RENDER_ATTACHMENT,
 					view_formats: &[],
@@ -343,19 +380,25 @@ impl Renderer for Render {
 				..Default::default()
 			});
 
-			render_pass.set_bind_group(0, &self.uniform_bind, &[]);
-
 			if let Some(assets) = &self.assets {
+				render_pass.set_pipeline(&self.default_pipeline);
+				render_pass.set_bind_group(0, &self.uniform_bind, &[]);
+
 				render_pass.set_vertex_buffer(0, assets.vertex_buffer.slice(..));
 
-				render_pass.set_pipeline(&self.default_pipeline);
-
-				for mesh in &assets.models.first().unwrap().meshes {
-					render_pass.set_bind_group(1, &assets.materials[mesh.material as usize], &[]);
-					render_pass.draw(
-						mesh.first_vertex..(mesh.first_vertex + mesh.num_vertices),
-						0..1,
-					)
+				for item in &self.scene_items {
+					render_pass.set_bind_group(2, &self.scene_bind, &[item.data_offset]);
+					for mesh in &assets.models[item.model as usize].meshes {
+						render_pass.set_bind_group(
+							1,
+							&assets.materials[mesh.material as usize],
+							&[],
+						);
+						render_pass.draw(
+							mesh.first_vertex..(mesh.first_vertex + mesh.num_vertices),
+							0..1,
+						)
+					}
 				}
 			}
 		}
@@ -367,13 +410,11 @@ impl Renderer for Render {
 
 	fn set_model_cache(&mut self, model_cache: ModelCache) {
 		let vertex_bytes = unsafe { vec_to_bytes(&model_cache.vertices) };
-		let vertex_buffer = self
-			.device
-			.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-				label: None,
-				contents: vertex_bytes,
-				usage: BufferUsages::VERTEX,
-			});
+		let vertex_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
+			label: None,
+			contents: vertex_bytes,
+			usage: BufferUsages::VERTEX,
+		});
 
 		let textures: Vec<Texture> = model_cache
 			.textures
@@ -391,7 +432,7 @@ impl Renderer for Render {
 						},
 						mip_level_count: 1,
 						sample_count: 1,
-						dimension: wgpu::TextureDimension::D2,
+						dimension: TextureDimension::D2,
 						format: TextureFormat::Rgba8UnormSrgb,
 						usage: TextureUsages::TEXTURE_BINDING,
 						view_formats: &[],
@@ -425,8 +466,45 @@ impl Renderer for Render {
 		});
 	}
 
-	fn set_render_list(&mut self, render_list: RenderList) {
-		self.render_list = render_list;
+	fn set_render_list(&mut self, render_list: Vec<RenderItem>) {
+		let mut scene_buffer = Vec::new();
+		let mut items = Vec::new();
+
+		for item in render_list {
+			let offset = scene_buffer.len() as u32;
+			let mat = Mat4::from([
+				Vec4::from((item.rotation[0], 0.0)),
+				Vec4::from((item.rotation[1], 0.0)),
+				Vec4::from((item.rotation[2], 0.0)),
+				Vec4::from((item.position, 1.0)),
+			]);
+			items.push(SceneItem {
+				model: item.model,
+				data_offset: offset,
+			});
+			scene_buffer.extend_from_slice(unsafe { struct_to_bytes(&mat) });
+		}
+
+		if scene_buffer.len() as u64 > self.scene_buffer.size() {
+			self.scene_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
+				label: None,
+				contents: &scene_buffer,
+				usage: self.scene_buffer.usage(),
+			});
+			self.scene_bind = self.device.create_bind_group(&BindGroupDescriptor {
+				label: None,
+				layout: &self.scene_bind_layout,
+				entries: &[BindGroupEntry {
+					binding: 0,
+					resource: self.scene_buffer.as_entire_binding(),
+				}],
+			});
+		} else {
+			self.queue
+				.write_buffer(&self.scene_buffer, 0, &scene_buffer);
+		}
+
+		self.scene_items = items;
 	}
 }
 
