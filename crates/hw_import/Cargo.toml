@@ -10,4 +10,4 @@ license.workspace = true
 common = { path = "../common" }
 binrw = "0.12.0"
 bitflags = "2.4"
-log = "0.4"
+log.workspace = true

@@ -9,4 +9,4 @@ license.workspace = true
 [dependencies]
 guidestone_core = { path = "../guidestone_core" }
 raw-window-handle = "0.5.2"
-wgpu = "0.17.0"
+wgpu = "0.17.1"
