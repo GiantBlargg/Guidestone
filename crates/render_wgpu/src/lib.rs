@@ -5,7 +5,7 @@ use guidestone_core::{
 	model::{CachedModel, ModelCache, Vertex},
 	FrameInfo, RenderItem, Renderer,
 };
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use wgpu::{
 	include_wgsl,
 	util::{BufferInitDescriptor, DeviceExt},
@@ -55,7 +55,7 @@ pub struct Render {
 }
 
 impl Render {
-	pub async fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(window: &W) -> Self {
+	pub async fn new<W: HasWindowHandle + HasDisplayHandle>(window: &W) -> Self {
 		let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
 			backends: wgpu::Backends::PRIMARY,
 			..Default::default()
@@ -359,21 +359,21 @@ impl Renderer for Render {
 		let surface_view = texture.create_view(&Default::default());
 		let depth_view = self.depth_buffer.create_view(&Default::default());
 		{
-			use wgpu::{LoadOp, Operations};
+			use wgpu::{LoadOp, Operations, StoreOp};
 			let mut render_pass = command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 				color_attachments: &[Some(wgpu::RenderPassColorAttachment {
 					view: &surface_view,
 					resolve_target: None,
 					ops: Operations {
-						load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-						store: true,
+						load: LoadOp::Clear(wgpu::Color::BLACK),
+						store: StoreOp::Store,
 					},
 				})],
 				depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
 					view: &depth_view,
 					depth_ops: Some(Operations {
 						load: LoadOp::Clear(0.0),
-						store: false,
+						store: StoreOp::Store,
 					}),
 					stencil_ops: None,
 				}),

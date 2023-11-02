@@ -9,13 +9,7 @@ license.workspace = true
 [dependencies]
 guidestone_core = { path = "../guidestone_core" }
 render_wgpu = { path = "../render_wgpu" }
-winit = { git = "https://github.com/rust-windowing/winit.git", default-features = false, features = [
-	"rwh_05",
-	"x11",
-	"wayland",
-	"wayland-dlopen",
-	"wayland-csd-adwaita",
-] }
+winit = "0.29.3"
 env_logger = "0.10.0"
 log.workspace = true
-futures-lite = "1.13.0"
+futures-lite = "2.0.0"
