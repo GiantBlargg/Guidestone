@@ -5,7 +5,7 @@ use guidestone_core::{
 	model::{CachedModel, ModelCache, Vertex},
 	FrameInfo, RenderItem, Renderer,
 };
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use wgpu::{
 	include_wgsl,
 	util::{BufferInitDescriptor, DeviceExt},
@@ -55,7 +55,7 @@ pub struct Render {
 }
 
 impl Render {
-	pub async fn new<W: HasWindowHandle + HasDisplayHandle>(window: &W) -> Self {
+	pub async fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(window: &W) -> Self {
 		let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
 			backends: wgpu::Backends::PRIMARY,
 			..Default::default()

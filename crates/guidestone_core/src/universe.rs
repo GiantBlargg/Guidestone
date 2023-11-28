@@ -1,19 +1,18 @@
 use std::time::Duration;
 
 use common::math::{Mat3, Vec3};
-use hecs::{Entity, World};
+use hecs::World;
+use hw_import::HWImporter;
 
-use crate::RenderItem;
+use crate::{model::ModelCache, RenderItem, RenderList};
 
-struct StaticCommon {
-	model: u32,
-	mass: f32,
-	moment_of_inertia: Vec3,
-	max_velocity: f32,
-	max_rot: f32,
+pub struct Common {
+	pub model: u32,
+	pub mass: f32,
+	pub moment_of_inertia: Vec3,
+	pub max_velocity: f32,
+	pub max_rot: f32,
 }
-
-struct StaticInfo(Entity);
 struct PosInfo {
 	position: Vec3,
 	velocity: Vec3,
@@ -25,7 +24,6 @@ struct RotInfo {
 	torque: Vec3,
 }
 
-#[derive(Default)]
 pub struct Universe {
 	world: World,
 }
@@ -39,32 +37,29 @@ fn cap_vector(vec: Vec3, cap: f32) -> Vec3 {
 }
 
 impl Universe {
+	pub fn new(hw_import: &mut HWImporter) -> (Self, ModelCache) {
+		let this = Self {
+			world: World::new(),
+		};
+		let mc = ModelCache::load(hw_import, vec![]);
+		(this, mc)
+	}
 	pub fn update(&mut self, delta: Duration) {
 		let delta_secs = delta.as_secs_f32();
-		let mut static_infos = self.world.query::<&StaticCommon>();
-		let static_infos = static_infos.view();
 
-		for (_, (static_info, pos_info)) in self.world.query::<(&StaticInfo, &mut PosInfo)>().iter()
-		{
-			let static_common = static_infos.get(static_info.0).unwrap();
+		for (_, (common, pos_info)) in self.world.query_mut::<(&Common, &mut PosInfo)>() {
+			let velocity = pos_info.velocity + (pos_info.force / common.mass) * delta_secs;
 
-			pos_info.velocity = cap_vector(
-				pos_info.velocity + (pos_info.force / static_common.mass) * delta_secs,
-				static_common.max_velocity,
-			);
+			pos_info.velocity = cap_vector(velocity, common.max_velocity);
 
 			pos_info.position += pos_info.velocity * delta_secs;
 		}
 
-		for (_, (static_info, rot_info)) in self.world.query::<(&StaticInfo, &mut RotInfo)>().iter()
-		{
-			let static_common = static_infos.get(static_info.0).unwrap();
+		for (_, (common, rot_info)) in self.world.query_mut::<(&Common, &mut RotInfo)>() {
+			let rot_speed =
+				rot_info.rot_speed + (rot_info.torque / common.moment_of_inertia) * delta_secs;
 
-			rot_info.rot_speed = cap_vector(
-				rot_info.rot_speed
-					+ (rot_info.torque / static_common.moment_of_inertia) * delta_secs,
-				static_common.max_rot,
-			);
+			rot_info.rot_speed = cap_vector(rot_speed, common.max_rot);
 
 			let rotate = rot_info.rot_speed * delta_secs;
 
@@ -73,20 +68,14 @@ impl Universe {
 		}
 	}
 
-	pub fn get_render_list(&mut self) -> Vec<RenderItem> {
-		let mut static_infos = self.world.query::<&StaticCommon>();
-		let static_infos = static_infos.view();
-
+	pub fn get_render_list(&self) -> RenderList {
 		self.world
-			.query::<(&StaticInfo, &PosInfo, &RotInfo)>()
+			.query::<(&Common, &PosInfo, &RotInfo)>()
 			.iter()
-			.map(|(_, (static_info, pos_info, rot_info))| {
-				let static_common = static_infos.get(static_info.0).unwrap();
-				RenderItem {
-					model: static_common.model,
-					position: pos_info.position,
-					rotation: rot_info.coord_sys,
-				}
+			.map(|(_, (common, pos_info, rot_info))| RenderItem {
+				model: common.model,
+				position: pos_info.position,
+				rotation: rot_info.coord_sys,
 			})
 			.collect()
 	}

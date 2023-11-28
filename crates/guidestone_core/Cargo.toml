@@ -9,5 +9,5 @@ license.workspace = true
 [dependencies]
 common = { path = "../common" }
 hw_import = { path = "../hw_import" }
-hecs = "0.10.3"
+hecs = "0.10"
 log.workspace = true

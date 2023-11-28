@@ -8,5 +8,5 @@ license.workspace = true
 
 [dependencies]
 guidestone_core = { path = "../guidestone_core" }
-raw-window-handle = "0.6"
-wgpu = { git = "https://github.com/gfx-rs/wgpu.git" }
+raw-window-handle = "0.5"
+wgpu = "0.18"

@@ -28,10 +28,12 @@ pub struct RenderItem {
 	pub rotation: Mat3,
 }
 
+pub type RenderList = Vec<RenderItem>;
+
 pub trait Renderer {
 	fn render_frame(&mut self, frame: FrameInfo);
 
 	fn set_model_cache(&mut self, model_cache: ModelCache);
 
-	fn set_render_list(&mut self, render_list: Vec<RenderItem>);
+	fn set_render_list(&mut self, render_list: RenderList);
 }

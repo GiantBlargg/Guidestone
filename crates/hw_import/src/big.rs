@@ -78,7 +78,7 @@ impl<R: io::Read + io::Seek> BigFile<R> {
 		Self { read, toc }
 	}
 
-	pub fn open(&mut self, filename: &str) -> Option<impl io::Read + io::Seek> {
+	pub fn open(&mut self, filename: &str) -> Option<impl io::BufRead + io::Seek> {
 		let filename = filename.to_lowercase().replace('\\', "/");
 		if let Some(f) = self.toc.get(&filename) {
 			let data = {
@@ -115,7 +115,7 @@ impl HwFs {
 		)
 	}
 
-	pub fn open(&mut self, filename: &str) -> Option<impl io::Read + io::Seek> {
+	pub fn open(&mut self, filename: &str) -> Option<impl io::BufRead + io::Seek> {
 		self.0.iter_mut().filter_map(|b| b.open(filename)).next()
 	}
 }
