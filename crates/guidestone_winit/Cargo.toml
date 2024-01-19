@@ -12,4 +12,4 @@ render_wgpu = { path = "../render_wgpu" }
 winit = { version = "0.29", features = ["rwh_05"] }
 env_logger = "0.10"
 log.workspace = true
-futures-lite = "2.0"
+futures-lite = "2"

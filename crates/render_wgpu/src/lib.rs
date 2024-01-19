@@ -5,13 +5,12 @@ use guidestone_core::{
 	model::{CachedModel, ModelCache, Vertex},
 	FrameInfo, RenderItem, Renderer,
 };
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use wgpu::{
 	include_wgsl,
 	util::{BufferInitDescriptor, DeviceExt},
 	BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer, BufferDescriptor,
 	BufferUsages, Device, Extent3d, PresentMode, Queue, RenderPipeline, ShaderStages, Surface,
-	Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+	SurfaceTarget, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
 struct Assets {
@@ -32,7 +31,7 @@ struct SceneItem {
 }
 
 pub struct Render {
-	surface: Surface,
+	surface: Surface<'static>,
 	device: Device,
 	queue: Queue,
 
@@ -55,13 +54,13 @@ pub struct Render {
 }
 
 impl Render {
-	pub async fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(window: &W) -> Self {
+	pub async fn new(window: impl Into<SurfaceTarget<'static>>) -> Self {
 		let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
 			backends: wgpu::Backends::PRIMARY,
 			..Default::default()
 		});
 
-		let surface = unsafe { instance.create_surface(window).unwrap() };
+		let surface = instance.create_surface(window).unwrap();
 
 		let adapter = instance
 			.request_adapter(&wgpu::RequestAdapterOptions {
@@ -318,6 +317,7 @@ impl Renderer for Render {
 						width: size.x,
 						height: size.y,
 						present_mode: self.present_mode,
+						desired_maximum_frame_latency: 2,
 						alpha_mode: wgpu::CompositeAlphaMode::Opaque,
 						view_formats: Vec::new(),
 					},
@@ -437,6 +437,7 @@ impl Renderer for Render {
 						usage: TextureUsages::TEXTURE_BINDING,
 						view_formats: &[],
 					},
+					wgpu::util::TextureDataOrder::LayerMajor,
 					texture_bytes,
 				)
 			})

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use guidestone_core::{
 	input,
 	math::{UVec2, Vec2},
@@ -90,16 +92,18 @@ fn main() {
 		width: s.x,
 		height: s.y,
 	};
-	let window = WindowBuilder::new()
-		.with_inner_size(convert_size(platform_config.initial_res))
-		.with_min_inner_size(convert_size(platform_config.min_res))
-		.with_title(platform_config.window_title)
-		.build(&event_loop)
-		.unwrap();
+	let window = Arc::new(
+		WindowBuilder::new()
+			.with_inner_size(convert_size(platform_config.initial_res))
+			.with_min_inner_size(convert_size(platform_config.min_res))
+			.with_title(platform_config.window_title)
+			.build(&event_loop)
+			.unwrap(),
+	);
 	let mut mouse_grabber = MouseGrabber::default();
 
 	let render = Box::new(futures_lite::future::block_on(render_wgpu::Render::new(
-		&window,
+		window.clone(),
 	)));
 
 	let mut engine = Engine::start(engine_init, render);

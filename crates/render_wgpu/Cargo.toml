@@ -7,6 +7,6 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+log.workspace = true
 guidestone_core = { path = "../guidestone_core" }
-raw-window-handle = "0.5"
-wgpu = "0.18"
+wgpu = "0.19"
