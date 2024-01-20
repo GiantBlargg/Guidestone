@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use env_logger::fmt::style::Style;
 use guidestone_core::{
 	input,
 	math::{UVec2, Vec2},
@@ -48,31 +49,24 @@ fn log_init() {
 	let start = Instant::now();
 	env_logger::builder()
 		.format(move |buf, record| {
-			{
-				let time_since_start = Instant::now() - start;
-				let mut style = buf.style();
-				style.set_dimmed(true);
-				write!(
-					buf,
-					"{}",
-					style.value(format_args!(
-						"{}.{:06}] ",
-						time_since_start.as_secs(),
-						time_since_start.subsec_micros()
-					))
-				)?;
-			}
-			{
-				let mut style = buf.default_level_style(record.level());
-				style.set_bold(true);
-				write!(
-					buf,
-					"{}",
-					style.value(format_args!("{:5} {}: ", record.level(), record.target()))
-				)?;
-			}
-			writeln!(buf, "{}", record.args())?;
-			Ok(())
+			let time_since_start = Instant::now() - start;
+
+			let time_style = Style::new().dimmed();
+			let time_reset = time_style.render_reset();
+			let time_style = time_style.render();
+			let level_style = buf.default_level_style(record.level()).bold();
+			let level_reset = level_style.render_reset();
+			let level_style = level_style.render();
+
+			writeln!(
+				buf,
+				"{time_style}{}.{:06}]{time_reset} {level_style}{:5} {}:{level_reset} {}",
+				time_since_start.as_secs(),
+				time_since_start.subsec_micros(),
+				record.level(),
+				record.target(),
+				record.args()
+			)
 		})
 		.init();
 }
