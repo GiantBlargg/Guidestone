@@ -6,10 +6,9 @@ use std::{
 
 use binrw::{binread, file_ptr::NonZeroFilePtr32, BinRead, FilePtr32, NullString};
 use bitflags::bitflags;
-use common::{
-	math::Vector,
-	model::{Material, Mesh, Model, Node, Texture, Vertex},
-};
+use glam::{vec2, Mat4, Vec2, Vec3};
+
+use common::model::{Material, Mesh, Model, Node, Texture, Vertex};
 
 use crate::big::HwFs;
 
@@ -138,7 +137,8 @@ struct PolygonObject {
 	daughter: Option<u32>, // link to child object
 	#[br(try, map = |x: Option<NonZeroU32>| Some((x?.get() - 68) / 112))]
 	sister: Option<u32>, // link to sibling object
-	local_matrix: [[f32; 4]; 4],
+	#[br(map = |m:[f32;16]|{Mat4::from_cols_array(&m)})]
+	local_matrix: Mat4,
 }
 
 #[binread]
@@ -294,7 +294,7 @@ impl ImportModels {
 			let node = nodes.len() as u32;
 			nodes.push(Node {
 				parent: po.mother,
-				transform: po.local_matrix.into(),
+				transform: po.local_matrix,
 			});
 
 			for pe in po.polygons {
@@ -446,24 +446,30 @@ impl ImportModels {
 struct Patch {
 	triangle: u32,
 	vertex: u8,
-	pos: Vector<Option<(f32, f32)>, 3>,
-	normal: Vector<Option<(f32, f32)>, 3>,
-	uv: Vector<Option<(f32, f32)>, 2>,
+	pos: Option<Vec3>,
+	old_pos: Option<Vec3>,
+	normal: Option<Vec3>,
+	old_normal: Option<Vec3>,
+	uv: Option<Vec2>,
+	old_uv: Option<Vec2>,
+	// pos: Vector<Option<(f32, f32)>, 3>,
+	// normal: Vector<Option<(f32, f32)>, 3>,
+	// uv: Vector<Option<(f32, f32)>, 2>,
 }
 
-fn patch_vector<T: Copy + PartialEq, const N: usize>(
-	target: &mut Vector<T, N>,
-	patch: &Vector<Option<(T, T)>, N>,
-) {
-	for i in 0..N {
-		if let Some((old, new)) = patch[i] {
-			if target[i] != old {
-				log::warn!(target:"model::classic::patch", "Unexpected old value! Patching anyway...");
-			}
-			target[i] = new;
-		}
-	}
-}
+// fn patch_vector<T: Copy + PartialEq, const N: usize>(
+// 	target: &mut Vector<T, N>,
+// 	patch: &Vector<Option<(T, T)>, N>,
+// ) {
+// 	for i in 0..N {
+// 		if let Some((old, new)) = patch[i] {
+// 			if target[i] != old {
+// 				log::warn!(target:"model::classic::patch", "Unexpected old value! Patching anyway...");
+// 			}
+// 			target[i] = new;
+// 		}
+// 	}
+// }
 
 struct PatchSet(HashMap<String, Vec<Patch>>);
 
@@ -476,13 +482,17 @@ fn patch(path: &str, triangles: &mut [Surface]) {
 					Patch {
 						triangle: 177,
 						vertex: 2,
-						uv: Vector::<_, 2>::new(Some((0.49725038, 0.25)), None),
+						uv: Some(vec2(0.25, 0.999999761)),
+						old_uv: Some(vec2(0.49725038, 0.999999761)),
+						// uv: Vector::<_, 2>::new(Some((0.49725038, 0.25)), None),
 						..Default::default()
 					},
 					Patch {
 						triangle: 179,
 						vertex: 2,
-						uv: Vector::<_, 2>::new(Some((0.49725038, 0.25)), None),
+						uv: Some(vec2(0.25, 0.999999761)),
+						old_uv: Some(vec2(0.49725038, 0.999999761)),
+						// uv: Vector::<_, 2>::new(Some((0.49725038, 0.25)), None),
 						..Default::default()
 					},
 				],
@@ -493,19 +503,25 @@ fn patch(path: &str, triangles: &mut [Surface]) {
 					Patch {
 						triangle: 415,
 						vertex: 0,
-						uv: Vector::<_, 2>::new(None, Some((0.9865452, 0.8771702))),
+						uv: Some(vec2(0.755954623, 0.8771702)),
+						old_uv: Some(vec2(0.755954623, 0.9865452)),
+						// uv: Vector::<_, 2>::new(None, Some((0.9865452, 0.8771702))),
 						..Default::default()
 					},
 					Patch {
 						triangle: 415,
 						vertex: 2,
-						uv: Vector::<_, 2>::new(None, Some((0.9962938, 0.875))),
+						uv: Some(vec2(1.0, 0.875)),
+						old_uv: Some(vec2(1.0, 0.9962938)),
+						// uv: Vector::<_, 2>::new(None, Some((0.9962938, 0.875))),
 						..Default::default()
 					},
 					Patch {
 						triangle: 419,
 						vertex: 2,
-						uv: Vector::<_, 2>::new(None, Some((1.0037062, 1.0))),
+						uv: Some(vec2(1.0, 1.0)),
+						old_uv: Some(vec2(1.0, 1.0037062)),
+						// uv: Vector::<_, 2>::new(None, Some((1.0037062, 1.0))),
 						..Default::default()
 					},
 				],
@@ -522,9 +538,35 @@ fn patch(path: &str, triangles: &mut [Surface]) {
 	if let Some(patches) = patch_set.0.get(path) {
 		for patch in patches {
 			let vertex = &mut triangles[patch.triangle as usize].vertices[patch.vertex as usize];
-			patch_vector(&mut vertex.pos, &patch.pos);
-			patch_vector(&mut vertex.normal, &patch.normal);
-			patch_vector(&mut vertex.uv, &patch.uv);
+			if let Some(old_pos) = patch.old_pos {
+				if vertex.pos != old_pos {
+					log::warn!(target:"model::classic::patch", "Unexpected old value! Patching anyway...");
+				}
+			}
+			if let Some(old_normal) = patch.old_normal {
+				if vertex.normal != old_normal {
+					log::warn!(target:"model::classic::patch", "Unexpected old value! Patching anyway...");
+				}
+			}
+			if let Some(old_uv) = patch.old_uv {
+				if vertex.uv != old_uv {
+					log::warn!(target:"model::classic::patch", "Unexpected old value! Patching anyway...");
+				}
+			}
+
+			if let Some(pos) = patch.pos {
+				vertex.pos = pos;
+			}
+			if let Some(normal) = patch.normal {
+				vertex.normal = normal;
+			}
+			if let Some(uv) = patch.uv {
+				vertex.uv = uv;
+			}
+
+			// patch_vector(&mut vertex.pos, &patch.pos);
+			// patch_vector(&mut vertex.normal, &patch.normal);
+			// patch_vector(&mut vertex.uv, &patch.uv);
 		}
 	}
 }

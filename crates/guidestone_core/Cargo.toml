@@ -9,5 +9,7 @@ license.workspace = true
 [dependencies]
 common = { path = "../common" }
 hw_import = { path = "../hw_import" }
+
+glam.workspace = true
 hecs = "0.10"
 log.workspace = true

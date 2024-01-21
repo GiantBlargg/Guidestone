@@ -1,4 +1,4 @@
-use crate::math::{UVec2, Vec2};
+use glam::{UVec2, Vec2};
 
 #[derive(Default)]
 pub struct State {

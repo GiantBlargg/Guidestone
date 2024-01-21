@@ -262,6 +262,20 @@ name = "bytemuck"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "374d28ec25809ee0e23827c2ab573d729e293f281dfe393500e7ad618baa61c6"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "965ab7eb5f8f97d2a083c799f3a1b994fc397b2fe2da5d1da1626ce15a39f2b1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
 
 [[package]]
 name = "bytes"
@@ -383,6 +397,10 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "glam",
+]
 
 [[package]]
 name = "concurrent-queue"
@@ -613,6 +631,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "151665d9be52f9bb40fc7966565d39666f2d1e69233571b71b87791c7e0528b3"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "glow"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -690,6 +717,7 @@ name = "guidestone_core"
 version = "0.1.0"
 dependencies = [
  "common",
+ "glam",
  "hecs",
  "hw_import",
  "log",
@@ -701,6 +729,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "futures-lite",
+ "glam",
  "guidestone_core",
  "log",
  "render_wgpu",
@@ -761,6 +790,7 @@ dependencies = [
  "binrw",
  "bitflags 2.4.2",
  "common",
+ "glam",
  "log",
 ]
 
@@ -980,8 +1010,7 @@ dependencies = [
  "log",
  "ndk-sys",
  "num_enum",
- "raw-window-handle 0.5.2",
- "raw-window-handle 0.6.0",
+ "raw-window-handle",
  "thiserror",
 ]
 
@@ -1197,9 +1226,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.76"
+version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95fc56cda0b5c3325f5fbbd7ff9fda9e02bb00bb3dac51252d2f1bfa1cb8cc8c"
+checksum = "e2422ad645d89c99f8f3e6b88a9fdeca7fabeac836b1002371c4367c8f984aae"
 dependencies = [
  "unicode-ident",
 ]
@@ -1233,12 +1262,6 @@ name = "range-alloc"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8a99fddc9f0ba0a85884b8d14e3592853e787d581ca1816c91349b10e4eeab"
-
-[[package]]
-name = "raw-window-handle"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 
 [[package]]
 name = "raw-window-handle"
@@ -1297,6 +1320,8 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 name = "render_wgpu"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "glam",
  "guidestone_core",
  "log",
  "wgpu",
@@ -1842,7 +1867,7 @@ dependencies = [
  "naga",
  "parking_lot",
  "profiling",
- "raw-window-handle 0.6.0",
+ "raw-window-handle",
  "smallvec",
  "static_assertions",
  "wasm-bindgen",
@@ -1870,7 +1895,7 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "profiling",
- "raw-window-handle 0.6.0",
+ "raw-window-handle",
  "rustc-hash",
  "smallvec",
  "thiserror",
@@ -1912,7 +1937,7 @@ dependencies = [
  "parking_lot",
  "profiling",
  "range-alloc",
- "raw-window-handle 0.6.0",
+ "raw-window-handle",
  "renderdoc-sys",
  "rustc-hash",
  "smallvec",
@@ -2215,8 +2240,7 @@ dependencies = [
  "once_cell",
  "orbclient",
  "percent-encoding",
- "raw-window-handle 0.5.2",
- "raw-window-handle 0.6.0",
+ "raw-window-handle",
  "redox_syscall 0.3.5",
  "rustix",
  "sctk-adwaita",

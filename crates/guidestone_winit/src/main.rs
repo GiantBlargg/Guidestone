@@ -1,17 +1,15 @@
 use std::sync::Arc;
 
 use env_logger::fmt::style::Style;
-use guidestone_core::{
-	input,
-	math::{UVec2, Vec2},
-	Engine,
-};
+use glam::{UVec2, Vec2};
 use winit::{
 	dpi::{PhysicalPosition, PhysicalSize},
 	event::{DeviceEvent, Event, MouseButton, MouseScrollDelta, WindowEvent},
 	event_loop::EventLoop,
 	window::{CursorGrabMode, Window, WindowBuilder},
 };
+
+use guidestone_core::{input, Engine};
 
 #[derive(Default)]
 struct MouseGrabber {

@@ -1,7 +1,7 @@
+use glam::{Mat3, UVec2, Vec3};
+
 pub use camera::Camera;
-pub use common::math;
 pub use engine::Engine;
-use math::{Mat3, UVec2, Vec3};
 use model::ModelCache;
 
 mod camera;

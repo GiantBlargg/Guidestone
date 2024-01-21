@@ -1,11 +1,13 @@
 use std::time::{Duration, Instant};
 
+use glam::UVec2;
+
 use hw_import::HWImporter;
 
 use crate::{
-	camera::OrbitCamera, input, math::UVec2, universe::Universe, FrameInfo, PlatformConfig,
-	RenderList, Renderer,
+	camera::OrbitCamera, input, universe::Universe, FrameInfo, PlatformConfig, RenderList, Renderer,
 };
+
 pub struct EngineInit {}
 
 pub struct Engine {

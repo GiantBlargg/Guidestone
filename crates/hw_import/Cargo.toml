@@ -8,6 +8,8 @@ license.workspace = true
 
 [dependencies]
 common = { path = "../common" }
+
 binrw = "0.13"
 bitflags = "2.4"
+glam.workspace = true
 log.workspace = true

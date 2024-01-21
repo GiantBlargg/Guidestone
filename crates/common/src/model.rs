@@ -1,5 +1,7 @@
-use crate::math::{Mat4, U8Vec4, UVec2, Vec2, Vec3};
+use bytemuck::{Pod, Zeroable};
+use glam::{Mat4, UVec2, Vec2, Vec3};
 
+#[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct Vertex {
 	pub pos: Vec3,
@@ -32,5 +34,5 @@ pub struct Model {
 
 pub struct Texture {
 	pub size: UVec2,
-	pub rgba: Vec<U8Vec4>,
+	pub rgba: Vec<[u8; 4]>,
 }

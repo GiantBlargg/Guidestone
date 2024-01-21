@@ -1,7 +1,8 @@
 use std::time::Duration;
 
-use common::math::{Mat3, Vec3};
+use glam::{Mat3, Vec3};
 use hecs::World;
+
 use hw_import::HWImporter;
 
 use crate::{model::ModelCache, RenderItem, RenderList};
@@ -38,10 +39,74 @@ fn cap_vector(vec: Vec3, cap: f32) -> Vec3 {
 
 impl Universe {
 	pub fn new(hw_import: &mut HWImporter) -> (Self, ModelCache) {
-		let this = Self {
+		let mut this = Self {
 			world: World::new(),
 		};
-		let mc = ModelCache::load(hw_import, vec![]);
+		let mc = ModelCache::load(
+			hw_import,
+			vec![
+				"r1/lightinterceptor/rl0/lod0/lightinterceptor.peo".into(),
+				"r1/resourcecollector/rl0/lod0/resourcecollector.peo".into(),
+				"r1/mothership/rl0/lod0/mothership.peo".into(),
+			],
+		);
+		this.world.spawn((
+			Common {
+				model: 0,
+				mass: 1.0,
+				moment_of_inertia: (1.0, 1.0, 1.0).into(),
+				max_velocity: 1.0,
+				max_rot: 1.0,
+			},
+			PosInfo {
+				position: (0.0, 0.0, 0.0).into(),
+				velocity: (0.0, 0.0, 0.0).into(),
+				force: (0.0, 0.0, 0.0).into(),
+			},
+			RotInfo {
+				coord_sys: Mat3::IDENTITY,
+				rot_speed: (0.0, 0.0, 0.0).into(),
+				torque: (0.0, 1.0, 0.0).into(),
+			},
+		));
+		this.world.spawn((
+			Common {
+				model: 1,
+				mass: 1.0,
+				moment_of_inertia: (1.0, 1.0, 1.0).into(),
+				max_velocity: 1.0,
+				max_rot: 1.0,
+			},
+			PosInfo {
+				position: (10.0, 0.0, 0.0).into(),
+				velocity: (0.0, 0.0, 0.0).into(),
+				force: (0.0, 0.0, 0.0).into(),
+			},
+			RotInfo {
+				coord_sys: Mat3::IDENTITY,
+				rot_speed: (0.0, 0.0, 0.0).into(),
+				torque: (1.0, 0.0, 0.0).into(),
+			},
+		));
+		this.world.spawn((
+			Common {
+				model: 2,
+				mass: 1.0,
+				moment_of_inertia: (1.0, 1.0, 1.0).into(),
+				max_velocity: 1.0,
+				max_rot: 1.0,
+			},
+			PosInfo {
+				position: (-10.0, 0.0, 0.0).into(),
+				velocity: (0.0, 0.0, 0.0).into(),
+				force: (0.0, 0.0, 0.0).into(),
+			},
+			RotInfo {
+				coord_sys: Mat3::IDENTITY,
+				rot_speed: (0.0, 0.0, 0.0).into(),
+				torque: (0.0, 0.0, 1.0).into(),
+			},
+		));
 		(this, mc)
 	}
 	pub fn update(&mut self, delta: Duration) {
@@ -63,8 +128,9 @@ impl Universe {
 
 			let rotate = rot_info.rot_speed * delta_secs;
 
-			rot_info.coord_sys *=
-				Mat3::rotate_x(rotate.x) * Mat3::rotate_y(rotate.y) * Mat3::rotate_z(rotate.z);
+			rot_info.coord_sys *= Mat3::from_rotation_x(rotate.x)
+				* Mat3::from_rotation_y(rotate.y)
+				* Mat3::from_rotation_z(rotate.z);
 		}
 	}
 

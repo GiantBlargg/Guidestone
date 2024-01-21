@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use common::math::{U8Vec4, UVec2};
-pub use common::model::*;
+use glam::UVec2;
+
 use hw_import::HWImporter;
+
+pub use common::model::*;
 
 pub struct CachedModel {
 	pub nodes: Vec<Node>,
@@ -52,7 +54,7 @@ impl ModelCache {
 		let default_texture = textures.len() as u32;
 		textures.push(Texture {
 			size: UVec2::new(1, 1),
-			rgba: vec![U8Vec4::new(255, 255, 255, 255)],
+			rgba: vec![[255, 255, 255, 255]],
 		});
 
 		let mut vertices = Vec::new();

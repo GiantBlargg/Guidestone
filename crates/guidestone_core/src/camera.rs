@@ -1,9 +1,8 @@
 use std::f32::consts::TAU;
 
-use crate::{
-	input,
-	math::{Mat3, Vec3},
-};
+use glam::{Mat3, Vec3};
+
+use crate::input;
 
 #[derive(Clone)]
 pub struct Camera {
@@ -59,8 +58,8 @@ impl OrbitCamera {
 
 	pub fn get_camera(&mut self) -> Camera {
 		let eye = self.target
-			+ (Mat3::rotate_z(self.angle)
-				* Mat3::rotate_y(self.declination)
+			+ (Mat3::from_rotation_z(self.angle)
+				* Mat3::from_rotation_y(self.declination)
 				* Vec3::new(self.distance, 0.0, 0.0));
 		Camera {
 			eye,

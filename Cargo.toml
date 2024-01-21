@@ -14,4 +14,6 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [workspace.dependencies]
+bytemuck = { version = "1.14.0", features = ["derive"] }
+glam = { version = "0.25", features = ["bytemuck"] }
 log = "0.4"

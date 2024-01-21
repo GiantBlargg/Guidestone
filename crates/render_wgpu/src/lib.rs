@@ -1,10 +1,7 @@
-use std::{mem::size_of, num::NonZeroU64, slice};
+use std::{mem::size_of, num::NonZeroU64};
 
-use guidestone_core::{
-	math::{Mat4, UVec2, Vec4},
-	model::{CachedModel, ModelCache, Vertex},
-	FrameInfo, RenderItem, Renderer,
-};
+use bytemuck::{cast_slice, Pod, Zeroable};
+use glam::{Mat4, UVec2, Vec3, Vec4};
 use wgpu::{
 	include_wgsl,
 	util::{BufferInitDescriptor, DeviceExt},
@@ -14,6 +11,11 @@ use wgpu::{
 	TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
+use guidestone_core::{
+	model::{CachedModel, ModelCache, Vertex},
+	FrameInfo, RenderItem, Renderer,
+};
+
 struct Assets {
 	vertex_buffer: Buffer,
 	materials: Vec<BindGroup>,
@@ -21,6 +23,7 @@ struct Assets {
 	models: Vec<CachedModel>,
 }
 
+#[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 struct ViewUniform {
 	camera: Mat4,
@@ -319,6 +322,37 @@ impl Render {
 	}
 }
 
+pub fn look_at(eye: Vec3, center: Vec3, up: Vec3) -> Mat4 {
+	let backwards = (eye - center).normalize();
+	let side = up.cross(backwards).normalize();
+	let new_up = backwards.cross(side).normalize();
+
+	Mat4::from_cols_array_2d(&[
+		[side.x, new_up.x, backwards.x, 0.0],
+		[side.y, new_up.y, backwards.y, 0.0],
+		[side.z, new_up.z, backwards.z, 0.0],
+		[
+			(-eye).dot(side),
+			(-eye).dot(new_up),
+			(-eye).dot(backwards),
+			1.0,
+		],
+	])
+}
+
+pub fn perspective(fov_y: f32, aspect: f32, z_near: f32) -> Mat4 {
+	let half_fov = fov_y / 2.0;
+	let cot = half_fov.cos() / half_fov.sin();
+
+	let mut m = Mat4::ZERO;
+	m.col_mut(0)[0] = -cot / aspect;
+	m.col_mut(1)[1] = -cot;
+	m.col_mut(2)[3] = -1.0;
+	m.col_mut(3)[2] = z_near;
+
+	m
+}
+
 impl Renderer for Render {
 	fn render_frame(&mut self, frame: FrameInfo) {
 		if let Some(size) = frame.resize {
@@ -356,14 +390,13 @@ impl Renderer for Render {
 
 		{
 			let aspect = (self.surface_size.x as f32) / (self.surface_size.y as f32);
-			let proj = Mat4::perspective(frame.camera.fov, aspect, frame.camera.near);
-			let view = Mat4::look_at(frame.camera.eye, frame.camera.target, frame.camera.up);
+			let proj = perspective(frame.camera.fov, aspect, frame.camera.near);
+			let view = look_at(frame.camera.eye, frame.camera.target, frame.camera.up);
 			let view_uniform = ViewUniform {
 				camera: proj * view,
 			};
-			self.queue.write_buffer(&self.uniform_buffer, 0, unsafe {
-				struct_to_bytes(&view_uniform)
-			});
+			self.queue
+				.write_buffer(&self.uniform_buffer, 0, cast_slice(&[view_uniform]));
 		}
 
 		let mut command_encoder = self.device.create_command_encoder(&Default::default());
@@ -423,7 +456,7 @@ impl Renderer for Render {
 	}
 
 	fn set_model_cache(&mut self, model_cache: ModelCache) {
-		let vertex_bytes = unsafe { vec_to_bytes(&model_cache.vertices) };
+		let vertex_bytes = cast_slice(&model_cache.vertices);
 		let vertex_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
 			label: None,
 			contents: vertex_bytes,
@@ -434,7 +467,7 @@ impl Renderer for Render {
 			.textures
 			.into_iter()
 			.map(|texture| {
-				let texture_bytes = unsafe { vec_to_bytes(&texture.rgba) };
+				let texture_bytes = cast_slice(texture.rgba.as_slice());
 				self.device.create_texture_with_data(
 					&self.queue,
 					&TextureDescriptor {
@@ -487,17 +520,17 @@ impl Renderer for Render {
 
 		for item in render_list {
 			let offset = scene_buffer.len() as u32;
-			let mat = Mat4::from([
-				Vec4::from((item.rotation[0], 0.0)),
-				Vec4::from((item.rotation[1], 0.0)),
-				Vec4::from((item.rotation[2], 0.0)),
+			let mat = Mat4::from_cols(
+				Vec4::from((item.rotation.col(0), 0.0)),
+				Vec4::from((item.rotation.col(1), 0.0)),
+				Vec4::from((item.rotation.col(2), 0.0)),
 				Vec4::from((item.position, 1.0)),
-			]);
+			);
 			items.push(SceneItem {
 				model: item.model,
 				data_offset: offset,
 			});
-			scene_buffer.extend_from_slice(unsafe { struct_to_bytes(&mat) });
+			scene_buffer.extend_from_slice(cast_slice(&[mat]));
 		}
 
 		if scene_buffer.len() as u64 > self.scene_buffer.size() {
@@ -521,12 +554,4 @@ impl Renderer for Render {
 
 		self.scene_items = items;
 	}
-}
-
-unsafe fn vec_to_bytes<T>(vec: &Vec<T>) -> &[u8] {
-	slice::from_raw_parts(vec.as_ptr().cast(), vec.len() * size_of::<T>())
-}
-
-unsafe fn struct_to_bytes<T>(value: &T) -> &[u8] {
-	slice::from_raw_parts((value as *const T).cast(), size_of::<T>())
 }
