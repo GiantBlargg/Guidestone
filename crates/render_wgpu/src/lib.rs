@@ -1,7 +1,7 @@
 use std::{mem::size_of, num::NonZeroU64};
 
 use bytemuck::{cast_slice, Pod, Zeroable};
-use glam::{Mat4, UVec2, Vec3, Vec4};
+use glam::{Mat4, UVec2, Vec4};
 use wgpu::{
 	include_wgsl,
 	util::{BufferInitDescriptor, DeviceExt},
@@ -322,25 +322,7 @@ impl Render {
 	}
 }
 
-pub fn look_at(eye: Vec3, center: Vec3, up: Vec3) -> Mat4 {
-	let backwards = (eye - center).normalize();
-	let side = up.cross(backwards).normalize();
-	let new_up = backwards.cross(side).normalize();
-
-	Mat4::from_cols_array_2d(&[
-		[side.x, new_up.x, backwards.x, 0.0],
-		[side.y, new_up.y, backwards.y, 0.0],
-		[side.z, new_up.z, backwards.z, 0.0],
-		[
-			(-eye).dot(side),
-			(-eye).dot(new_up),
-			(-eye).dot(backwards),
-			1.0,
-		],
-	])
-}
-
-pub fn perspective(fov_y: f32, aspect: f32, z_near: f32) -> Mat4 {
+fn perspective(fov_y: f32, aspect: f32, z_near: f32) -> Mat4 {
 	let half_fov = fov_y / 2.0;
 	let cot = half_fov.cos() / half_fov.sin();
 
@@ -391,7 +373,7 @@ impl Renderer for Render {
 		{
 			let aspect = (self.surface_size.x as f32) / (self.surface_size.y as f32);
 			let proj = perspective(frame.camera.fov, aspect, frame.camera.near);
-			let view = look_at(frame.camera.eye, frame.camera.target, frame.camera.up);
+			let view = Mat4::look_at_rh(frame.camera.eye, frame.camera.target, frame.camera.up);
 			let view_uniform = ViewUniform {
 				camera: proj * view,
 			};
