@@ -45,12 +45,13 @@ impl Engine {
 
 		let (universe, model_cache) = Universe::new(&mut hw_import);
 
+		self.render.set_model_cache(model_cache);
+		self.render.set_render_list(universe.get_render_list());
+
 		self.universe = Some(UniverseHolder {
 			universe,
 			last_tick: Instant::now(),
 		});
-
-		self.render.set_model_cache(model_cache);
 	}
 
 	// Returns true when platform should shutdown.

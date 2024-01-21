@@ -79,6 +79,7 @@ fn main() {
 	}
 
 	let event_loop = EventLoop::new().unwrap();
+	event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
 
 	let (platform_config, engine_init) = Engine::init();
 

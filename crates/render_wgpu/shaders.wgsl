@@ -24,7 +24,7 @@ fn vert(
 	@location(1) normal: vec3<f32>, 
 	@location(2) uv: vec2<f32>
 ) -> VertexOutput {
-	let clip_pos = (camera.mat * vec4<f32>(pos.x, pos.y, pos.z, 1.0));
+	let clip_pos = (camera.mat * object.transform * vec4<f32>(pos, 1.0));
 	return VertexOutput(pos, normal, uv, clip_pos);
 }
 

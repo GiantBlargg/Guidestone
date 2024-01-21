@@ -8,9 +8,10 @@ use guidestone_core::{
 use wgpu::{
 	include_wgsl,
 	util::{BufferInitDescriptor, DeviceExt},
-	BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer, BufferDescriptor,
-	BufferUsages, Device, Extent3d, PresentMode, Queue, RenderPipeline, ShaderStages, Surface,
-	SurfaceTarget, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+	BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, Buffer, BufferBinding,
+	BufferDescriptor, BufferSize, BufferUsages, Device, DeviceDescriptor, Extent3d, Limits,
+	PresentMode, Queue, RenderPipeline, ShaderStages, Surface, SurfaceTarget, Texture,
+	TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
 struct Assets {
@@ -71,7 +72,16 @@ impl Render {
 			.unwrap();
 
 		let (device, queue) = adapter
-			.request_device(&Default::default(), None)
+			.request_device(
+				&DeviceDescriptor {
+					required_limits: Limits {
+						min_uniform_buffer_offset_alignment: 64,
+						..Default::default()
+					},
+					..Default::default()
+				},
+				None,
+			)
 			.await
 			.unwrap();
 
@@ -272,7 +282,7 @@ impl Render {
 		let scene_buffer = device.create_buffer(&BufferDescriptor {
 			label: None,
 			size: 1000 * size_of::<Mat4>() as u64,
-			usage: BufferUsages::UNIFORM,
+			usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
 			mapped_at_creation: false,
 		});
 		let scene_bind = device.create_bind_group(&BindGroupDescriptor {
@@ -280,7 +290,11 @@ impl Render {
 			layout: &scene_bind_layout,
 			entries: &[BindGroupEntry {
 				binding: 0,
-				resource: scene_buffer.as_entire_binding(),
+				resource: wgpu::BindingResource::Buffer(BufferBinding {
+					buffer: &scene_buffer,
+					offset: 0,
+					size: BufferSize::new(size_of::<Mat4>() as u64),
+				}),
 			}],
 		});
 
